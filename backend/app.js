@@ -11,7 +11,7 @@ import cookieParser from "cookie-parser";
 const app = express();
 console.log(process.env.APP_URL)
 app.use(cors({
-  origin: process.env.APP_URL,
+  origin: process.env.APP_URL_CORS,
   credentials: true,
 }));
 app.set("trust proxy", 1);
