@@ -9,7 +9,7 @@ import { attachUser } from "./src/middleware/attachUser.js";
 import userRoute from "./src/routes/user.route.js";
 import cookieParser from "cookie-parser";
 const app = express();
-console.log(process.env.APP_URL)
+console.log(process.env.APP_URL_CORS)
 app.use(cors({
   origin: process.env.APP_URL_CORS,
   credentials: true,
