@@ -1,5 +1,5 @@
 import { createRoute } from "@tanstack/react-router";
-import dashboardPage from "../pages/dashboardPage.jsx";
+import DashboardPage from "../pages/DashboardPage.jsx";
 import { checkAuth } from "../utils/helper.js";
 
 export const dashboardRoute = (rootRoute) =>
