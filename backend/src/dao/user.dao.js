@@ -15,8 +15,14 @@ export const findUserById = async (id) => {
 export const createUser = async (name, email, password) => {
     const user = new User({ name, email, password });
     await user.save();
-    user.password = undefined;
     return user;
 }
 
+export const saveRefreshToken = async(user, refreshToken)=>{
+    user.refreshToken = refreshToken;
+    await user.save();
+}
 
+export const checkIfRefreshTokenExistsDao = (id, refreshToken)=>{
+    return User.findOne({_id:id, refreshToken});
+}

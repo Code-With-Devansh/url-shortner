@@ -2,6 +2,7 @@ import rateLimit from "express-rate-limit";
 import { RedisStore } from "rate-limit-redis";
 import redis from "../config/redis.config.js";
 import { ipKeyGenerator } from "express-rate-limit";
+const skipInDev = () => process.env.NODE_ENV === "development";
 const createStore = (prefix) =>
   new RedisStore({
     prefix,
@@ -16,7 +17,7 @@ const commonConfig = {
     success: false,
     message: "Too many requests. Try again later.",
   },
-
+    skip: skipInDev
 
 };
 

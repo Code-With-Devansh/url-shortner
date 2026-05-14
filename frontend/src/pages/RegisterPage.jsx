@@ -145,43 +145,6 @@ const RegisterPage = ({ setLogin }) => {
                 </div>
               )}
             </div>
-
-            {/* Terms */}
-            <label className="flex items-start gap-3 cursor-pointer group">
-              <div className="relative mt-0.5 shrink-0">
-                <input type="checkbox" className="sr-only peer" />
-                <div className="w-4 h-4 border border-zinc-700 rounded bg-zinc-950 peer-checked:bg-lime-400 peer-checked:border-lime-400 transition-all duration-200" />
-                <svg
-                  className="absolute inset-0 w-4 h-4 text-zinc-950 opacity-0 peer-checked:opacity-100 transition-opacity duration-200 pointer-events-none"
-                  viewBox="0 0 16 16"
-                  fill="none"
-                >
-                  <path
-                    d="M3 8l3.5 3.5 6.5-7"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </div>
-              <span className="text-[11px] tracking-wide text-zinc-500 group-hover:text-zinc-400 transition-colors duration-200 leading-relaxed">
-                I agree to the{" "}
-                <a
-                  href="#"
-                  className="text-lime-400 hover:text-lime-300 uppercase font-bold"
-                >
-                  Terms
-                </a>{" "}
-                &amp;{" "}
-                <a
-                  href="#"
-                  className="text-lime-400 hover:text-lime-300 uppercase font-bold"
-                >
-                  Privacy Policy
-                </a>
-              </span>
-            </label>
               {error && <p className="text-red-500 text-center text-sm">{error}</p>}
             {/* Submit */}
             <button

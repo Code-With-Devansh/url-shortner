@@ -8,8 +8,8 @@ import { errorHandler } from "./src/utils/errorHandler.js";
 import { attachUser } from "./src/middleware/attachUser.js";
 import userRoute from "./src/routes/user.route.js";
 import cookieParser from "cookie-parser";
+import { sendLink } from "./src/controller/auth.controller.js";
 const app = express();
-console.log(process.env.APP_URL_CORS)
 app.use(cors({
   origin: process.env.APP_URL_CORS,
   credentials: true,
@@ -18,11 +18,9 @@ app.set("trust proxy", 1);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
-app.use(attachUser);
 app.use("/api", shortUrlRoute);
 app.use("/api/auth", authRoute);
 app.use("/api/user", userRoute)
-// get: redirect to the original url
 app.get("/:shortId", redirectFromShortUrl);
 app.use(errorHandler);
 

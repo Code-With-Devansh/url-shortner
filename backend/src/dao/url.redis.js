@@ -1,4 +1,4 @@
-import "dotenv/config";
+
 import redis from '../config/redis.config.js'
 
 const PREFIX = "url:";

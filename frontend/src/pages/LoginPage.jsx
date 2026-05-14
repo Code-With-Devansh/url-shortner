@@ -84,12 +84,6 @@ const LoginPage = ({setLogin}) => {
                   <label className="block text-[10px] tracking-[0.2em] uppercase text-zinc-500">
                     Password
                   </label>
-                  <a
-                    href="#"
-                    className="text-[10px] tracking-wider text-zinc-500 hover:text-lime-400 transition-colors duration-200 uppercase"
-                  >
-                    Forgot?
-                  </a>
                 </div>
                 <div className="relative">
                   <input
@@ -110,30 +104,6 @@ const LoginPage = ({setLogin}) => {
                 </div>
               </div>
 
-              {/* Remember me */}
-              <label className="flex items-center gap-3 cursor-pointer group">
-                <div className="relative">
-                  <input type="checkbox" className="sr-only peer" />
-                  <div className="w-4 h-4 border border-zinc-700 rounded bg-zinc-950 peer-checked:bg-lime-400 peer-checked:border-lime-400 transition-all duration-200" />
-                  <svg
-                    className="absolute inset-0 w-4 h-4 text-zinc-950 opacity-0 peer-checked:opacity-100 transition-opacity duration-200 pointer-events-none"
-                    viewBox="0 0 16 16"
-                    fill="none"
-                  >
-                    <path
-                      d="M3 8l3.5 3.5 6.5-7"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </div>
-                <span className="text-[11px] tracking-wider text-zinc-500 group-hover:text-zinc-400 uppercase transition-colors duration-200">
-                  Remember me
-                </span>
-              </label>
-
               {/* Submit */}
 
               {error && (
@@ -149,24 +119,7 @@ const LoginPage = ({setLogin}) => {
               </button>
             </div>
             ;{/* Divider */}
-            <div className="flex items-center gap-3 my-6">
-              <div className="flex-1 h-px bg-zinc-800" />
-              <span className="text-[10px] tracking-widest uppercase text-zinc-600">
-                or
-              </span>
-              <div className="flex-1 h-px bg-zinc-800" />
-            </div>
-            {/* OAuth */}
-            <div className="flex flex-col gap-2.5">
-              <button className="flex items-center justify-center gap-3 w-full bg-zinc-950 border border-zinc-800 hover:border-zinc-600 text-zinc-300 text-xs tracking-wider rounded py-3 transition-all duration-200 cursor-pointer">
-                <GoogleIcon />
-                Continue with Google
-              </button>
-              <button className="flex items-center justify-center gap-3 w-full bg-zinc-950 border border-zinc-800 hover:border-zinc-600 text-zinc-300 text-xs tracking-wider rounded py-3 transition-all duration-200 cursor-pointer">
-                <GithubIcon />
-                Continue with GitHub
-              </button>
-            </div>
+            
           </div>
         </div>
 

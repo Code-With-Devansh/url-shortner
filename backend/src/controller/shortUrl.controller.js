@@ -15,11 +15,6 @@ export const createShortUrl = tryCatch(async (req, res, next)=>{
                 res.status(200).json({ short_url: process.env.BASE_URL + id });
         }
 });
-// export const createShortUrlwithUser = tryCatch(async (req, res, next)=>{
-//         const {url} = req.body; 
-//         const id=await createShortUrlWithUserService(url, req.user._id, req.body.slug);
-//         res.status(200).json({ short_url: process.env.BASE_URL + id });    
-// });
 
 
 export const redirectFromShortUrl = tryCatch(async (req, res, next)=>{
