@@ -12,9 +12,10 @@ class AppError extends Error {
 }
 
 class ValidationError extends AppError {
-    constructor(message) {
-        super(message, 400);
-        this.name = 'ValidationError';
+    constructor(errors) {
+        super("Validation failed", 400);
+        this.name = "ValidationError";
+        this.errors = errors;
     }
 }
 

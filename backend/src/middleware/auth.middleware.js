@@ -14,6 +14,8 @@ export const authMiddleware = async (req, res, next) => {
             const decoded = await verifyToken(accessToken);
             const user = await findUserById(decoded.userId);
             if (!user) {
+                res.clearCookie("refreshToken");
+                res.clearCookie("accessToken");
                 throw new UnauthorizedError("User not found");
             }
             req.user = user;
@@ -22,8 +24,10 @@ export const authMiddleware = async (req, res, next) => {
             const data = verifyRefreshToken(refreshToken);
             const userId = data.userId;
             const stored = checkIfRefreshTokenExists(userId, refreshToken);
+            const user = await findUserById(userId);
             const newAccessToken = generateAccessToken();
             res.cookie('accessToken', newAccessToken, AccessTokenCookieOptions);
+            req.user = user;
             next();
         }
     }catch(err){

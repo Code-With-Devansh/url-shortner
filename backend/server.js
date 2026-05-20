@@ -1,25 +1,25 @@
 import "dotenv/config";
 import mongoose from "mongoose";
 import { connectRedis } from "./src/config/redis.config.js";
+import logger from "./src/logger/index.js";
+import { connectDB } from "./src/config/mongo.config.js";
 
 async function startServer() {
   try {
-    await mongoose.connect(process.env.MONGO_URI);
-    console.log("MongoDB connected successfully");
+    await connectDB()
 
     await connectRedis();
-    console.log("Redis connected successfully");
 
     const { default: app } = await import("./app.js");
+    const PORT = process.env.PORT || 5000;
 
-    app.listen(process.env.PORT || 5000, () => {
-      console.log("Server running on port 5000");
+    app.listen(PORT, () => {
+      logger.info({ port: PORT }, "Server started");
     });
 
   } catch (err) {
-    console.error(err);
+    logger.fatal({ err }, "Failed to start server");
     process.exit(1);
   }
 }
-
 startServer();

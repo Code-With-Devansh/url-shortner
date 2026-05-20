@@ -1,4 +1,5 @@
 import { createClient } from "redis";
+import logger from "../logger/index.js";
 const client = createClient({
   username: "default",
   password: process.env.REDIS_PASSWORD,
@@ -11,13 +12,14 @@ const client = createClient({
   },
 });
 
+
 client.on("error", (err) => {
-  console.error("Redis Error:", err);
+  logger.error({ err }, "Redis client error");
 });
 
 export const connectRedis = async () => {
   await client.connect();
-  console.log("Redis Connected");
+  logger.info("Redis connected");
 };
 
 export default client;

@@ -20,7 +20,7 @@ export const createShortUrlWithUserService = async (url, userId, slug = null) =>
   if(exists){
     throw new conflictError("Custom short URL already exists");
   }
-  cacheUrl(id, url)
+  await cacheUrl(id, url)
   await saveShortUrl(url, id, userId);
   return id;
 };

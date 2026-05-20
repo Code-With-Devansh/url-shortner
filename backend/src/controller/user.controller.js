@@ -5,6 +5,6 @@ import tryCatch from "../utils/tryCatch.js";
     const {_id} = req.user;
     const urls =  await getUserUrls(_id)
     res.status(200).json({urls, success: true, message: "User URLs retrieved successfully"});
- })
+ }, "Get all user Urls")
 
  

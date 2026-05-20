@@ -8,7 +8,7 @@ import { errorHandler } from "./src/utils/errorHandler.js";
 import { attachUser } from "./src/middleware/attachUser.js";
 import userRoute from "./src/routes/user.route.js";
 import cookieParser from "cookie-parser";
-import { sendLink } from "./src/controller/auth.controller.js";
+import { requestLogger } from "./src/middleware/requestLogger.js";
 const app = express();
 app.use(cors({
   origin: process.env.APP_URL_CORS,
@@ -18,6 +18,7 @@ app.set("trust proxy", 1);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+app.use(requestLogger)
 app.use("/api", shortUrlRoute);
 app.use("/api/auth", authRoute);
 app.use("/api/user", userRoute)

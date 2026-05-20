@@ -1,10 +1,10 @@
 import express from 'express';
 import { createShortUrl, deleteShortUrl } from '../controller/shortUrl.controller.js';
 import { shortenLimiter } from '../middleware/rateLimiter.js';
+import { authMiddleware } from '../middleware/auth.middleware.js';
 import { attachUser } from '../middleware/attachUser.js';
 const router = express.Router();
-router.use(attachUser);
-router.post("/create", shortenLimiter, createShortUrl );
-router.delete('/delete/:id', deleteShortUrl);
+router.post("/create", shortenLimiter, attachUser, createShortUrl );
+router.delete('/delete/:id', authMiddleware, deleteShortUrl);
 
 export default router;

@@ -20,12 +20,24 @@ const userSchema = new mongoose.Schema({
         type: Boolean,
         default: false
     },
-    refreshToken:{
-        type:String
+    verificationToken:{
+        type:String,
+        select:false
+    },
+    verificationTokenExpires:{
+        type:Date,
+        select:false
+    },
+    passwordResetToken:{
+        type:String,
+        select:false
+    },
+    passwordResetTokenExpires:{
+        type:Date,
+        select:false
     },
     avatar:{
         type: String,
-        // add gravatar as default
         default: function(){
             return getGravitarUrl(this.email);
         }
