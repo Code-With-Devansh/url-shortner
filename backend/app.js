@@ -9,6 +9,7 @@ import { attachUser } from "./src/middleware/attachUser.js";
 import userRoute from "./src/routes/user.route.js";
 import cookieParser from "cookie-parser";
 import { requestLogger } from "./src/middleware/requestLogger.js";
+import { success } from "zod";
 const app = express();
 app.use(cors({
   origin: process.env.APP_URL_CORS,
@@ -22,6 +23,11 @@ app.use(requestLogger)
 app.use("/api", shortUrlRoute);
 app.use("/api/auth", authRoute);
 app.use("/api/user", userRoute)
+app.get("/api/health", (req, res) =>{
+  return res.json({
+    success:true
+  })  
+})
 app.get("/:shortId", redirectFromShortUrl);
 app.use(errorHandler);
 
