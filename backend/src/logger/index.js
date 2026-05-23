@@ -1,12 +1,9 @@
-import pino from "pino";
-import productionLogger from './productionLogger.js'
-import devLogger from './devLogger.js'
-let logger = devLogger
 
+import productionLogger from './productionLogger.js';
+import devLogger from './devLogger.js';
 
-
-if(process.env.NODE_ENV === 'production'){
-    logger = productionLogger
-}
+const logger = process.env.NODE_ENV === 'production'
+  ? productionLogger
+  : devLogger;
 
 export default logger;
