@@ -1,20 +1,38 @@
+import { AccessTokenCookieOptions } from "../config/config.js";
 import { findUserById } from "../dao/user.dao.js";
-import { verifyToken } from "../utils/helper.js";
+import { checkIfRefreshTokenExists } from "../services/auth.service.js";
+import { generateAccessToken, verifyRefreshToken, verifyToken } from "../utils/helper.js";
 
-export const attachUser = async(req, res, next) => {
-    const token = req.cookies.accessToken;
-    if(!token){
-        return next();
-    }
-    try{
-        const decoded = await verifyToken(token);
-        const user = await findUserById(decoded.userId);
-        if (!user) {
-            return next();
-        }
+export const attachUser = async (req, res, next) => {
+  const accessToken = req.cookies.accessToken;
+  const refreshToken = req.cookies.refreshToken;
+
+  try {
+    if (accessToken) {
+      const decoded = await verifyToken(accessToken);
+      const user = await findUserById(decoded.userId);
+      if (user) {
         req.user = user;
-        next();
-    }catch(err){
-        next(err);
+      }
+      return next();
     }
-}
+    
+    if (refreshToken) {
+      const data = await verifyRefreshToken(refreshToken);
+      const stored = await checkIfRefreshTokenExists(data.userId, refreshToken);
+      if (!stored) {
+        return next();
+      }
+      const user = await findUserById(data.userId);
+      if (user) {
+        const newAccessToken = await generateAccessToken(data.userId);
+        res.cookie("accessToken", newAccessToken, AccessTokenCookieOptions);
+        req.user = user;
+      }
+    }
+    next();
+  } catch(err) {
+    console.error(err)
+    next();
+  }
+};

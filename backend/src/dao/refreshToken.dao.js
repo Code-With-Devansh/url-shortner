@@ -1,17 +1,29 @@
 import { RefreshToken } from "../models/refreshToken.model.js";
 import { refreshTokenCookieOptions } from "../config/config.js";
 
+// remain modification. allow multiple devices.
 export const saveRefreshToken = async (user, token) => {
   const refreshToken = new RefreshToken({
     user: user._id,
     token: token,
-    expiresAt: refreshTokenCookieOptions.maxAge,
+    expiresAt: new Date(Date.now() + refreshTokenCookieOptions.maxAge),
   });
-  await refreshToken.save();
+  await RefreshToken.findOneAndUpdate(
+    { user: user._id },
+    {
+      token,
+      expiresAt: new Date(Date.now() + refreshTokenCookieOptions.maxAge),
+    },
+    {
+      upsert: true,
+      new: true,
+      runValidators: true,
+    },
+  );
 };
 
-export const checkIfRefreshTokenExistsDao = (id, refreshToken) => {
-  return RefreshToken.findOne({ user: id, token: refreshToken });
+export const checkIfRefreshTokenExistsDao = async (id, refreshToken) => {
+  return await RefreshToken.findOne({ user: id, token: refreshToken });
 };
 
 export const delRefreshToken = async (userId) => {

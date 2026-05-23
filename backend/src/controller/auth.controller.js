@@ -33,6 +33,8 @@ import {
 import tryCatch from "../utils/tryCatch.js";
 import { NotFoundError, ValidationError } from "../utils/appError.js";
 import UserSchema from "../schema/auth.schema.js";
+import { addClient, notifyClient, removeClient } from "../utils/sseClient.js";
+import logger from "../logger/index.js";
 
 export const register_user = tryCatch(async (req, res, next) => {
   const { name, email, password } = req.body;
@@ -140,6 +142,8 @@ export const verifyEmail = tryCatch(async (req, res, next) => {
     res.send({ success: false, message: "Email verification failed" });
   }
   await setEmailVerified(user);
+  notifyClient(user._id.toString(), "verified", { success: true });
+  res.redirect(process.env.APP_URL + "/auth/email-verified");
   res.send({ success: true, message: "Email Verified" });
 }, "verify Email");
 
@@ -169,3 +173,20 @@ export const changePassword = tryCatch(async (req, res, next) => {
   await updatePassword(user, password);
   res.send({ success: true, message: "password updated successfully." });
 }, "Change Password");
+
+export const verificationStatus = (req, res) => {
+  const userId = req.user._id.toString();
+
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.flushHeaders();
+
+  addClient(userId, res);
+  logger.info({ userId }, "SSE connection opened");
+
+  req.on("close", () => {
+    removeClient(userId);
+    logger.info({ userId }, "SSE connection closed");
+  });
+};

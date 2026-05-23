@@ -1,7 +1,7 @@
 import { useNavigate } from "@tanstack/react-router";
 import React, { useState } from "react";
 import { useDispatch } from "react-redux";
-import { registerUser } from "../api/user.api";
+import { registerUser, sendverificationMail } from "../api/user.api";
 import { login } from "../store/slice/authSlice";
 import UserSchema from "../schema/auth.schema";
 const RegisterPage = ({ setLogin }) => {
@@ -15,21 +15,28 @@ const RegisterPage = ({ setLogin }) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = async(e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    try{
-        const validationResult = UserSchema.safeParse(form);
-        if (!validationResult.success) {
-            throw new Error(validationResult.error.issues[0].message);
-        }
+    try {
+      const validationResult = UserSchema.safeParse(form);
+      if (!validationResult.success) {
+        throw new Error(validationResult.error.issues[0].message);
+      }
       const data = await registerUser(form.name, form.email, form.password);
       dispatch(login(data));
-      navigate({to:"/dashboard"});
-        setError(null);
-    }catch(err){
-        setError(err.userMessage || err.message || "Registration failed"); 
-    }finally{
+      const verified = await sendverificationMail();
+      if(verified.success){
+        navigate({
+          to:'/auth/verify-email'
+        });
+      }else{
+        throw new Error(verified.message)
+      }
+      setError(null);
+    } catch (err) {
+      setError(err.userMessage || err.message || "Registration failed");
+    } finally {
       setLoading(false);
     }
   };
@@ -145,13 +152,15 @@ const RegisterPage = ({ setLogin }) => {
                 </div>
               )}
             </div>
-              {error && <p className="text-red-500 text-center text-sm">{error}</p>}
+            {error && (
+              <p className="text-red-500 text-center text-sm">{error}</p>
+            )}
             {/* Submit */}
             <button
               onClick={handleSubmit}
               className="w-full bg-lime-400 hover:bg-lime-300 text-zinc-950 font-bold text-xs tracking-widest uppercase rounded py-3.5 transition-all duration-200 hover:-translate-y-px active:translate-y-0 cursor-pointer"
             >
-             {loading? "Creating Account..." : "Create Account →"}
+              {loading ? "Creating Account..." : "Create Account →"}
             </button>
           </div>
         </div>

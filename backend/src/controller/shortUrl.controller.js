@@ -7,17 +7,23 @@ import {
 } from "../services/shortUrl.service.js";
 import { NotFoundError, ValidationError } from "../utils/appError.js";
 import { generateValidationErrors } from "../utils/helper.js";
+import { buildRedirectPage } from "../utils/redirectPage.js";
 import tryCatch from "../utils/tryCatch.js";
+import { incrementClicks } from "../dao/clicks.redis.js";
 
 export const createShortUrl = tryCatch(async (req, res, next) => {
   const { url } = req.body;
-  const validated = urlSchema.pick({full_url:true}).safeParse({full_url:url})
-  if(!validated.success){
-    throw new ValidationError(generateValidationErrors(validated))
+  const validated = urlSchema
+    .pick({ full_url: true })
+    .safeParse({ full_url: url });
+  if (!validated.success) {
+    throw new ValidationError(generateValidationErrors(validated));
   }
   if (req.user) {
     const slug = req.body.slug;
-    const validated = urlSchema.pick({short_url:true}).safeParse({short_url:slug})
+    const validated = urlSchema
+      .pick({ short_url: true })
+      .safeParse({ short_url: slug });
     const id = await createShortUrlWithUserService(url, req.user._id, slug);
     res.status(200).json({ short_url: process.env.BASE_URL + id });
   } else {
@@ -29,16 +35,17 @@ export const createShortUrl = tryCatch(async (req, res, next) => {
 export const redirectFromShortUrl = tryCatch(async (req, res, next) => {
   const { shortId } = req.params;
   const cached = await getCachedUrl(shortId);
-  if (cached) {
-    res.redirect(cached);
-  } else {
+  let fullUrl = cached;
+
+  if (!cached) {
     const shortUrl = await findShortUrl(shortId);
     if (!shortUrl || !shortUrl.isactive) {
       throw new NotFoundError("Short URL not found");
     }
-    cacheUrl(shortId, shortUrl.full_url);
-    res.redirect(shortUrl.full_url);
+    fullUrl = shortUrl.full_url;
+    cacheUrl(shortId, fullUrl);
   }
+  return res.send(buildRedirectPage(shortId, fullUrl));
 }, "Redirect from short url");
 
 export const deleteShortUrl = tryCatch(async (req, res, next) => {
@@ -52,3 +59,10 @@ export const deleteShortUrl = tryCatch(async (req, res, next) => {
   await deleteCachedUrl(id);
   res.status(200).json({ message: "Short URL deleted successfully" });
 }, "Delete short url");
+
+export const trackClick = tryCatch(async (req, res) => {
+  const { shortId } = req.params;
+  console.log("track Clicks ........................................................");
+  await incrementClicks(shortId);
+  res.sendStatus(204);
+}, "Track click");

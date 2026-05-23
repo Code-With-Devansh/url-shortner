@@ -1,14 +1,12 @@
 import "dotenv/config";
 import mongoose from "mongoose";
-import { connectRedis } from "./src/config/redis.config.js";
+import { redisConnection } from "./src/config/redis.config.js";
 import logger from "./src/logger/index.js";
-import { connectDB } from "./src/config/mongo.config.js";
+import { mongoConnection } from "./src/config/mongo.config.js";
 
 async function startServer() {
   try {
-    await connectDB()
-
-    await connectRedis();
+    await Promise.all([redisConnection, mongoConnection]);
 
     const { default: app } = await import("./app.js");
     const PORT = process.env.PORT || 5000;

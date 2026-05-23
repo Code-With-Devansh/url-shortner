@@ -5,21 +5,22 @@ const client = createClient({
   password: process.env.REDIS_PASSWORD,
   socket: {
     host: process.env.REDIS_HOST,
-    port: 14561,
+    port: Number(process.env.REDIS_PORT),
     reconnectStrategy: (retries) => {
-      return Math.min(retries * 50, 500);
+      if (retries > 10) {
+        logger.fatal('[redis] max reconnection attempts reached');
+        process.exit(1);
+      }
+      return Math.min(retries * 100, 3000)
     },
+    connectTimeout: 10_000,
   },
 });
 
 
-client.on("error", (err) => {
-  logger.error({ err }, "Redis client error");
-});
+client.on('connect',   () => logger.info('[redis] connected'));
+client.on('reconnecting', () => logger.warn('[redis] reconnecting...'));
+client.on('error',     (err) => logger.error({ err }, '[redis] client error'));
 
-export const connectRedis = async () => {
-  await client.connect();
-  logger.info("Redis connected");
-};
-
+export const redisConnection = client.connect();
 export default client;

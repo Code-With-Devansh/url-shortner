@@ -1,13 +1,13 @@
 import React, { useState } from "react";
-import { loginUser } from "../api/user.api";
+import { loginUser, sendverificationMail } from "../api/user.api";
 import { useDispatch, useSelector } from "react-redux";
-import  { login } from "../store/slice/authSlice.js";
+import { login } from "../store/slice/authSlice.js";
 import { useNavigate } from "@tanstack/react-router";
 import UserSchema from "../schema/auth.schema.js";
-const LoginPage = ({setLogin}) => {
+const LoginPage = ({ setLogin }) => {
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
-  }; 
+  };
   const [form, setForm] = useState({ email: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -15,23 +15,42 @@ const LoginPage = ({setLogin}) => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const auth = useSelector((state) => state.auth);
-  
-  const handleSubmit = async(e) => {
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    try{
-        const validationResult = UserSchema.pick({email:true, password:true}).safeParse(form);
-        if (!validationResult.success) {
-            throw new Error(validationResult.error.issues[0].message);
-        }
-        const data = await loginUser(form.email, form.password);
-        dispatch(login(data));
-        navigate({to:"/dashboard"});
-        setError(null);
-        setLoading(false);
-    }catch(err){
-        setLoading(false);
-        setError(err.userMessage || err.message || "Email or Password is incorrect");
+    try {
+      const validationResult = UserSchema.pick({
+        email: true,
+        password: true,
+      }).safeParse(form);
+      if (!validationResult.success) {
+        throw new Error(validationResult.error.issues[0].message);
+      }
+      const data = await loginUser(form.email, form.password);
+      dispatch(login(data));
+      console.log(data)
+      if(data.isVerified){
+        navigate({
+          to:'/dashboard'
+        })
+        return;
+      }
+      const verified = await sendverificationMail();
+      if (verified.success) {
+        navigate({
+          to:'/auth/verify-email'
+        })
+      } else {
+        throw new Error(verified.message);
+      }
+      setError(null);
+      setLoading(false);
+    } catch (err) {
+      setLoading(false);
+      setError(
+        err.userMessage || err.message || "Email or Password is incorrect",
+      );
     }
   };
 
@@ -119,7 +138,6 @@ const LoginPage = ({setLogin}) => {
               </button>
             </div>
             ;{/* Divider */}
-            
           </div>
         </div>
 

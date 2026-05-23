@@ -7,7 +7,7 @@ import {
   savePasswordResetToken,
   saveVerificationToken,
 } from "../dao/user.dao.js";
-import { cacheRefreshToken } from "../dao/user.redis.js";
+import { cacheRefreshToken, getCachedRefreshToken } from "../dao/user.redis.js";
 import {
   conflictError,
   NotFoundError,
@@ -46,16 +46,16 @@ export const loginUser = async (email, password) => {
   return { accessToken, refreshToken, user };
 };
 
-export const checkIfRefreshTokenExists = (id, refreshToken) => {
-  const cached = getCachedRefreshToken(id);
+export const checkIfRefreshTokenExists = async(id, refreshToken) => {
+  const cached = await getCachedRefreshToken(id);
   if (cached === refreshToken) {
     return true;
   }
-  const user = checkIfRefreshTokenExistsDao(id, refreshToken);
+  const user = await checkIfRefreshTokenExistsDao(id, refreshToken);
   if (user) {
+    await cacheRefreshToken(refreshToken, id);
     return true;
   }
-  throw new NotFoundError("Invalid Refresh Token");
 };
 
 export const generateAndStoreVerificationToken = async (email) => {
