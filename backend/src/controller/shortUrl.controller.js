@@ -62,7 +62,6 @@ export const deleteShortUrl = tryCatch(async (req, res, next) => {
 
 export const trackClick = tryCatch(async (req, res) => {
   const { shortId } = req.params;
-  console.log("track Clicks ........................................................");
   await incrementClicks(shortId);
   res.sendStatus(204);
 }, "Track click");
