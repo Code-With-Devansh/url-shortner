@@ -3,7 +3,7 @@ import logger from "../logger/index.js";
 
 export const requestLogger = pinoHttp({
   logger,
-  autoLogging: { ignore: (req) => req.url === "/health" },
+  autoLogging: { ignore: (req) => req.url === "/api/health" },
   customLogLevel(req, res, err) {
     if (res.statusCode >= 500 || err) return "error";
     if (res.statusCode >= 400) return "warn";

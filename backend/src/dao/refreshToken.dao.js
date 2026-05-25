@@ -14,11 +14,7 @@ export const saveRefreshToken = async (user, token) => {
       token,
       expiresAt: new Date(Date.now() + refreshTokenCookieOptions.maxAge),
     },
-    {
-      upsert: true,
-      new: true,
-      runValidators: true,
-    },
+    { returnDocument: "after" },
   );
 };
 
