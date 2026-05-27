@@ -9,7 +9,7 @@ import {
   updatePassword,
 } from "../dao/user.dao.js";
 import { delRefreshToken, saveRefreshToken } from "../dao/refreshToken.dao.js";
-import { cacheRefreshToken } from "../dao/user.redis.js";
+import { cacheRefreshToken, delCachedRefreshToken } from "../dao/user.redis.js";
 import {
   checkIfRefreshTokenExists,
   generateAndStorePasswordResetToken,
@@ -50,11 +50,10 @@ export const register_user = tryCatch(async (req, res, next) => {
     email,
     password,
   );
-  res.cookie("accessToken", accessToken, AccessTokenCookieOptions);
   res.cookie("refreshToken", refreshToken, refreshTokenCookieOptions);
   res.status(201).json({
     success: true,
-    data: user,
+    data: {...user, accessToken},
     message: "User registered successfully",
   });
 }, "Register user");
@@ -69,11 +68,10 @@ export const login_user = tryCatch(async (req, res, next) => {
     throw new ValidationError(generateValidationErrors(validated));
   }
   const { accessToken, refreshToken, user } = await loginUser(email, password);
-  res.cookie("accessToken", accessToken, AccessTokenCookieOptions);
   res.cookie("refreshToken", refreshToken, refreshTokenCookieOptions);
   res.status(200).json({
     success: true,
-    data: user,
+    data: {...user, accessToken},
     message: "User logged in successfully",
   });
 }, "Login User");
@@ -101,19 +99,17 @@ export const refreshAccessToken = tryCatch(async (req, res, next) => {
   cacheRefreshToken(newRefreshToken);
   saveRefreshToken(newRefreshToken);
   res.cookie("refreshToken", newRefreshToken, refreshTokenCookieOptions);
-  res.cookie("accessToken", newAccessToken, AccessTokenCookieOptions);
-  res.json({ success: true, message: "Access Token refreshed." });
+  res.json({ success: true, message: "Access Token refreshed.",accessToken});
 }, "Refresh Access Token");
 
 export const logout_user = tryCatch(async (req, res, next) => {
-  refreshToken = req.cookies.refreshToken;
+  const refreshToken = req.cookies.refreshToken;
   const data = await verifyRefreshToken(refreshToken);
   if (data) {
     const userId = data.userId;
     await delCachedRefreshToken(userId);
     await delRefreshToken(userId);
   }
-  res.clearCookie("accessToken");
   res.clearCookie("refreshToken");
   res.json({
     success: true,

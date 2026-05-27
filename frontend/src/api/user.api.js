@@ -25,7 +25,7 @@ export const getUrls = async() => {
     return data.urls;
 }
 
-export const sendverificationMail = async() =>{
+export const sendVerificationMail = async() =>{
     const {data} = await axiosInstance.post("/api/auth/send-verification-link")
     return data;
 }

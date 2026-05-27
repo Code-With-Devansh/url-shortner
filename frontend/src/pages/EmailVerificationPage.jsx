@@ -1,62 +1,78 @@
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { useSelector } from "react-redux";
-import { sendverificationMail } from "../api/user.api";
+import { useDispatch, useSelector } from "react-redux";
+import { sendVerificationMail } from "../api/user.api";
+import { setVerified } from "../store/slice/authSlice";
 
 export default function EmailVerificationPage() {
   const auth = useSelector((state) => state.auth);
-  const navigate = useNavigate()
-  if(!auth.isAuthenticated){
-    navigate({
-      to:'/auth'
-    })
-    return;
-  }
-  if(auth.user.isVerified){
-    navigate({
-      to:'/dashboard'
-    })
-    return;
-  }
-  const email = auth.user.email
+  const navigate = useNavigate();
+
   const [resent, setResent] = useState(false);
   const [loading, setLoading] = useState(false);
+  const dispatch = useDispatch();
+  useEffect(() => {
+    if (auth.user.isVerified) {
+      navigate({
+        to: "/dashboard",
+        replace: true,
+      });
+    }
+  }, [navigate, auth.user]);
 
+  const email = auth.user?.email;
   const handleResend = async () => {
     setLoading(true);
-    await sendverificationMail();
-    setLoading(false);
-    setResent(true);
-    setTimeout(() => setResent(false), 10000);
+
+    try {
+      await sendVerificationMail();
+
+      setResent(true);
+
+      setTimeout(() => {
+        setResent(false);
+      }, 10000);
+    } finally {
+      setLoading(false);
+    }
   };
-useEffect(() => {
-    const es = new EventSource(`${import.meta.env.VITE_API_URL}api/auth/verify-status`, {
-      withCredentials: true,
-    });
- 
+
+  useEffect(() => {
+    if (!auth.user) return;
+    const es = new EventSource(
+      `${import.meta.env.VITE_API_URL}api/auth/verify-status`,
+      {
+        withCredentials: true,
+      },
+    );
+
     es.addEventListener("verified", (e) => {
       const data = JSON.parse(e.data);
       if (data.success) {
         es.close();
-        navigate({ to: "/dashboard" })
+        dispatch(setVerified());
+        navigate({ to: "/dashboard" });
       }
     });
- 
+
     es.onerror = () => {
       console.warn("SSE connection lost, retrying...");
     };
- 
-    const timeout = setTimeout(() => {
-      es.close();
-      setStatus("timeout");
-    }, 10 * 60 * 1000);
- 
+
+    const timeout = setTimeout(
+      () => {
+        es.close();
+        setStatus("timeout");
+      },
+      10 * 60 * 1000,
+    );
+
     return () => {
       es.close();
       clearTimeout(timeout);
     };
-  }, []);
- 
+  }, [navigate, auth.user]);
+
   return (
     <div className="min-h-screen bg-zinc-950 flex items-center justify-center px-4 font-mono">
       {/* Glow */}
@@ -69,7 +85,8 @@ useEffect(() => {
             className="text-5xl font-extrabold tracking-tight text-zinc-100"
             style={{ fontFamily: "'Syne', sans-serif" }}
           >
-            <span className="text-lime-400">[</span>snip<span className="text-lime-400">]</span>
+            <span className="text-lime-400">[</span>snip
+            <span className="text-lime-400">]</span>
           </h1>
         </div>
 
@@ -81,8 +98,13 @@ useEffect(() => {
             {/* Icon */}
             <div className="w-16 h-16 rounded-full bg-lime-400/10 border border-lime-400/20 flex items-center justify-center">
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
-                <path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                  stroke="#aaff00" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                <path
+                  d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                  stroke="#aaff00"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
               </svg>
             </div>
 
@@ -97,7 +119,9 @@ useEffect(() => {
               <p className="mt-2 text-xs text-zinc-500 leading-relaxed tracking-wide">
                 We sent a verification link to
               </p>
-              <p className="mt-1 text-sm text-lime-400 font-medium tracking-wide">{email}</p>
+              <p className="mt-1 text-sm text-lime-400 font-medium tracking-wide">
+                {email}
+              </p>
             </div>
 
             {/* Steps */}
@@ -111,7 +135,9 @@ useEffect(() => {
                   <span className="shrink-0 w-5 h-5 rounded-full bg-lime-400/10 border border-lime-400/20 text-lime-400 text-[10px] font-bold flex items-center justify-center mt-0.5">
                     {i + 1}
                   </span>
-                  <span className="text-[11px] tracking-wide text-zinc-500 leading-relaxed">{step}</span>
+                  <span className="text-[11px] tracking-wide text-zinc-500 leading-relaxed">
+                    {step}
+                  </span>
                 </div>
               ))}
             </div>
@@ -122,9 +148,10 @@ useEffect(() => {
                 onClick={handleResend}
                 disabled={loading || resent}
                 className={`w-full flex items-center justify-center gap-2 border rounded py-3 text-[11px] font-bold tracking-widest uppercase transition-all duration-200 cursor-pointer disabled:cursor-not-allowed
-                  ${resent
-                    ? "border-lime-400 text-lime-400 bg-lime-400/10"
-                    : "border-zinc-700 text-zinc-400 hover:border-lime-400 hover:text-lime-400"
+                  ${
+                    resent
+                      ? "border-lime-400 text-lime-400 bg-lime-400/10"
+                      : "border-zinc-700 text-zinc-400 hover:border-lime-400 hover:text-lime-400"
                   }`}
               >
                 {loading ? (
@@ -151,7 +178,10 @@ useEffect(() => {
         </p>
       </div>
 
-      <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&display=swap" />
+      <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&display=swap"
+      />
     </div>
   );
 }

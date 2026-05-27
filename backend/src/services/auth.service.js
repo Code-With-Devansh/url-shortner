@@ -29,8 +29,8 @@ export const registerUser = async (name, email, password) => {
   const refreshToken = await generateRefreshToken(user._id.toString());
   await cacheRefreshToken(refreshToken, user._id);
   await saveRefreshToken(user, refreshToken);
-  user.password = undefined;
-  return { accessToken, refreshToken, user };
+  const userObj = user.toJSON()
+  return { accessToken, refreshToken, user:userObj };
 };
 
 export const loginUser = async (email, password) => {
@@ -42,8 +42,8 @@ export const loginUser = async (email, password) => {
   const refreshToken = await generateRefreshToken(user._id.toString());
   await cacheRefreshToken(refreshToken, user._id);
   await saveRefreshToken(user, refreshToken);
-  user.password = undefined;
-  return { accessToken, refreshToken, user };
+  const userObj = user.toJSON();
+  return { accessToken, refreshToken, user:userObj };
 };
 
 export const checkIfRefreshTokenExists = async(id, refreshToken) => {
@@ -56,6 +56,7 @@ export const checkIfRefreshTokenExists = async(id, refreshToken) => {
     await cacheRefreshToken(refreshToken, id);
     return true;
   }
+
 };
 
 export const generateAndStoreVerificationToken = async (email) => {

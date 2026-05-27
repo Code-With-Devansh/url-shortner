@@ -1,7 +1,6 @@
 import { QueryClient, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { getUrls } from "../api/user.api";
-import react, { usestate } from "react";
 import StatCard from "../components/StatCard";
 import { addUrl, setUrl } from "../store/slice/allUrlsSlice";
 import { useDispatch, useSelector } from "react-redux";
@@ -36,7 +35,7 @@ export default function DashboardPage() {
   }
 }, [url, dispatch]);
   const handleCreate = async () => {
-    if (!auth.isAuthenticated) {
+    if (!auth.user) {
       Navigate({
         to: "/auth",
       });
@@ -65,12 +64,13 @@ export default function DashboardPage() {
     }
   };
   useEffect(() => {
-    if (auth.isAuthenticated && !auth.user.isVerified) {
+    console.log(auth)
+    if (!auth.user || !auth.user.isVerified) {
       Navigate({
         to: "/auth",
       });
     }
-  }, [auth.isAuthenticated]);
+  }, [auth.user]);
   return (
     <div className="min-h-screen  bg-zinc-950 text-zinc-100 font-mono">
       <div className="pointer-events-none fixed top-0 left-1/2 -translate-x-1/2 w-[600px] h-[400px] bg-lime-400/5 rounded-full blur-3xl" />

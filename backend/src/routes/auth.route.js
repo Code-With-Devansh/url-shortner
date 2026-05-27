@@ -15,5 +15,5 @@ router.get("/verify-email/:token", verifyEmail)
 router.post("/forgot-password", forgotPassword)
 router.post("/change-password/:token", changePassword)
 router.get("/verify-status", authMiddleware, verificationStatus);
-router.post("/logout", logout_user)
+router.get("/logout", logout_user)
 export default router;

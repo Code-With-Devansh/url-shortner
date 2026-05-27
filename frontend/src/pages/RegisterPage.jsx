@@ -1,7 +1,7 @@
 import { useNavigate } from "@tanstack/react-router";
 import React, { useState } from "react";
 import { useDispatch } from "react-redux";
-import { registerUser, sendverificationMail } from "../api/user.api";
+import { registerUser, sendVerificationMail } from "../api/user.api";
 import { login } from "../store/slice/authSlice";
 import UserSchema from "../schema/auth.schema";
 const RegisterPage = ({ setLogin }) => {
@@ -25,7 +25,7 @@ const RegisterPage = ({ setLogin }) => {
       }
       const data = await registerUser(form.name, form.email, form.password);
       dispatch(login(data));
-      const verified = await sendverificationMail();
+      const verified = await sendVerificationMail();
       if(verified.success){
         navigate({
           to:'/auth/verify-email'

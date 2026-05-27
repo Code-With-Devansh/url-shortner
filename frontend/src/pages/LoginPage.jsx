@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { loginUser, sendverificationMail } from "../api/user.api";
+import { loginUser, sendVerificationMail } from "../api/user.api";
 import { useDispatch, useSelector } from "react-redux";
 import { login } from "../store/slice/authSlice.js";
 import { useNavigate } from "@tanstack/react-router";
@@ -14,7 +14,6 @@ const LoginPage = ({ setLogin }) => {
   const [error, setError] = useState(null);
   const navigate = useNavigate();
   const dispatch = useDispatch();
-  const auth = useSelector((state) => state.auth);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -28,16 +27,17 @@ const LoginPage = ({ setLogin }) => {
         throw new Error(validationResult.error.issues[0].message);
       }
       const data = await loginUser(form.email, form.password);
-      dispatch(login(data));
-      console.log(data)
+      dispatch(login({user:data}));
       if(data.isVerified){
+        setLoading(false)
         navigate({
           to:'/dashboard'
         })
         return;
       }
-      const verified = await sendverificationMail();
+      const verified = await sendVerificationMail();
       if (verified.success) {
+        setLoading(false);
         navigate({
           to:'/auth/verify-email'
         })
@@ -81,7 +81,7 @@ const LoginPage = ({ setLogin }) => {
           <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-lime-400" />
 
           <div className="px-8 py-8">
-            <div className="flex flex-col gap-5">
+            <form className="flex flex-col gap-5" onSubmit={handleSubmit}>
               {/* Email */}
               <div>
                 <label className="block text-[10px] tracking-[0.2em] uppercase text-zinc-500 mb-2">
@@ -131,13 +131,12 @@ const LoginPage = ({ setLogin }) => {
                 </p>
               )}
               <button
-                onClick={handleSubmit}
+                type="submit"
                 className="w-full bg-lime-400 hover:bg-lime-300 text-zinc-950 font-bold text-xs tracking-widest uppercase rounded py-3.5 transition-all duration-200 hover:-translate-y-px active:translate-y-0 cursor-pointer mt-1"
               >
                 {loading ? "Signing In..." : "Sign In →"}
               </button>
-            </div>
-            ;{/* Divider */}
+            </form>
           </div>
         </div>
 
