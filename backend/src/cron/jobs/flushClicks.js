@@ -1,14 +1,32 @@
 import { getClickKeys, getKeyAndDel } from "../../dao/clicks.redis.js";
 import { incrementClicks } from "../../dao/shortUrl.js";
-
+import { ShortUrlSchema } from "../../models/shortUrl.model.js";
+import redis from '../../config/redis.config.js'
 export async function flushClicksToDB() {
-  const keys = await getClickKeys();
-  
-  await Promise.all(keys.map(async (key) => {
-    const shortId = key.split(':')[1];
-    const count = await getKeyAndDel(key);
-    if (count > 0) {
-      await incrementClicks(shortId, count);
-    }
-  }));
+  const clicks = await redis.hGetAll("clicks");
+
+  if (!Object.keys(clicks).length) {
+    return;
+  }
+
+  await redis.del("clicks");
+
+  const operations = [];
+
+  for (const [shortId, count] of Object.entries(clicks)) {
+    operations.push({
+      updateOne: {
+        filter: {
+          short_url: shortId,
+        },
+        update: {
+          $inc: {
+            clicks: Number(count),
+          },
+        },
+      },
+    });
+  }
+
+  await ShortUrlSchema.bulkWrite(operations);
 }

@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "nodemon server.js",
     "cron:flush": "node --env-file=.env src/cron/flushClicks.js",
+    "script:rebuildBloom":"node --env-file=.env src/scripts/rebuildBloom.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node server.js"
   },

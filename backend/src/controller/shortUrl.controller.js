@@ -10,6 +10,7 @@ import { generateValidationErrors } from "../utils/helper.js";
 import { buildRedirectPage } from "../utils/redirectPage.js";
 import tryCatch from "../utils/tryCatch.js";
 import { incrementClicks } from "../dao/clicks.redis.js";
+import { addUrlToBloom, checkIfExistinBloom } from "../dao/redirectBloom.redis.js";
 
 export const createShortUrl = tryCatch(async (req, res, next) => {
   const { url } = req.body;
@@ -25,15 +26,21 @@ export const createShortUrl = tryCatch(async (req, res, next) => {
       .pick({ short_url: true })
       .safeParse({ short_url: slug });
     const id = await createShortUrlWithUserService(url, req.user._id, slug);
+    await addUrlToBloom(id);
     res.status(200).json({ short_url: process.env.BASE_URL + id });
   } else {
     const id = await createShortUrlwithoutUserService(url);
+    await addUrlToBloom(id)
     res.status(200).json({ short_url: process.env.BASE_URL + id });
   }
 }, "Create Short url");
 
 export const redirectFromShortUrl = tryCatch(async (req, res, next) => {
   const { shortId } = req.params;
+  const mightExists = await checkIfExistinBloom(shortId);
+  if (Number(mightExists) === 0) {
+    throw new NotFoundError("Short URL not found");
+  }
   const cached = await getCachedUrl(shortId);
   let fullUrl = cached;
 

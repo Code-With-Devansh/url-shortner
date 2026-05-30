@@ -7,7 +7,6 @@ import { mongoConnection } from "./src/config/mongo.config.js";
 async function startServer() {
   try {
     await Promise.all([redisConnection, mongoConnection]);
-
     const { default: app } = await import("./app.js");
     const PORT = process.env.PORT || 5000;
 
