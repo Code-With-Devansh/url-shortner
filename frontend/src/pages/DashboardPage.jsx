@@ -99,10 +99,10 @@ export default function DashboardPage() {
           />
           <StatCard
             label="Top Link"
-            value={
+            value={ (url && url.length>0)?
               BASE_URL +
                 [...(url || [])].sort((a, b) => b.clicks - a.clicks)[0]
-                  ?.short_url ?? "—"
+                  ?.short_url ?? "—":"-"
             }
             icon="🏆"
             link={true}
@@ -111,7 +111,7 @@ export default function DashboardPage() {
           <StatCard
             link={true}
             label="Newest"
-            value={BASE_URL + url?.[0]?.short_url ?? "—"}
+            value={(url && url.length>0)?BASE_URL + url?.[0]?.short_url ?? "—":"-"}
             icon="✨"
             mono
           />

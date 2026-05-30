@@ -5,6 +5,6 @@ import { authMiddleware } from '../middleware/auth.middleware.js';
 import { attachUser } from '../middleware/attachUser.js';
 const router = express.Router();
 router.post("/create", shortenLimiter, attachUser, createShortUrl );
-router.delete('/delete/:id', authMiddleware, deleteShortUrl);
+router.delete('/:id', authMiddleware, deleteShortUrl);
 router.post('/clicks/:shortId', trackClick)
 export default router;

@@ -25,7 +25,15 @@ export const getUrls = async() => {
     return data.urls;
 }
 
-export const sendVerificationMail = async() =>{
-    const {data} = await axiosInstance.post("/api/auth/send-verification-link")
+export const sendVerificationMail = async(email) =>{
+    const {data} = await axiosInstance.post("/api/auth/send-verification-link", {email})
     return data;
+}
+
+export const forgotPassword = async(email) =>{
+    const {data} = await axiosInstance.post('/api/auth/forgot-password', {email})
+    return data;
+}
+export const changePassword = async (token, password) =>{
+    const {data} = await axiosInstance.post('/api/auth/change-password/'+ token, {password})
 }

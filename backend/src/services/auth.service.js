@@ -25,12 +25,8 @@ export const registerUser = async (name, email, password) => {
     throw new conflictError("User already exists");
   }
   const user = await createUser(name, email, password);
-  const accessToken = await generateAccessToken(user._id.toString());
-  const refreshToken = await generateRefreshToken(user._id.toString());
-  await cacheRefreshToken(refreshToken, user._id);
-  await saveRefreshToken(user, refreshToken);
   const userObj = user.toJSON()
-  return { accessToken, refreshToken, user:userObj };
+  return { user:userObj };
 };
 
 export const loginUser = async (email, password) => {
@@ -38,12 +34,19 @@ export const loginUser = async (email, password) => {
   if (!user || !(await user.comparePassword(password))) {
     throw new UnauthorizedError("Invalid email or password");
   }
+  const userObj = user.toJSON();
+  if(!user.isVerified){
+    return {
+      user: userObj,
+      accessToken: null,
+      refreshToken: null,
+    };
+  }
   const accessToken = await generateAccessToken(user._id.toString());
   const refreshToken = await generateRefreshToken(user._id.toString());
   await cacheRefreshToken(refreshToken, user._id);
   await saveRefreshToken(user, refreshToken);
-  const userObj = user.toJSON();
-  return { accessToken, refreshToken, user:userObj };
+  return { user:userObj, accessToken, refreshToken };
 };
 
 export const checkIfRefreshTokenExists = async(id, refreshToken) => {

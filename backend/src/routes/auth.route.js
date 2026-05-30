@@ -10,10 +10,10 @@ router.post("/register", registerLimiter, register_user)
 router.post("/login", loginLimiter, login_user)
 router.get("/me",authMiddleware, get_current_user);
 router.post("/refresh", refreshAccessToken)
-router.post("/send-verification-link",authMiddleware, sendVerificationLink)
+router.post("/send-verification-link", sendVerificationLink)
 router.get("/verify-email/:token", verifyEmail)
 router.post("/forgot-password", forgotPassword)
 router.post("/change-password/:token", changePassword)
-router.get("/verify-status", authMiddleware, verificationStatus);
+router.get("/verify-status", verificationStatus);
 router.get("/logout", logout_user)
 export default router;

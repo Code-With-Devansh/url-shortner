@@ -25,7 +25,7 @@ const RegisterPage = ({ setLogin }) => {
       }
       const data = await registerUser(form.name, form.email, form.password);
       dispatch(login(data));
-      const verified = await sendVerificationMail();
+      const verified = await sendVerificationMail(data.email);
       if(verified.success){
         navigate({
           to:'/auth/verify-email'

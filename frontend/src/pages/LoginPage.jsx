@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { loginUser, sendVerificationMail } from "../api/user.api";
 import { useDispatch, useSelector } from "react-redux";
 import { login } from "../store/slice/authSlice.js";
-import { useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import UserSchema from "../schema/auth.schema.js";
 const LoginPage = ({ setLogin }) => {
   const handleChange = (e) => {
@@ -35,7 +35,7 @@ const LoginPage = ({ setLogin }) => {
         })
         return;
       }
-      const verified = await sendVerificationMail();
+      const verified = await sendVerificationMail(data.email);
       if (verified.success) {
         setLoading(false);
         navigate({
@@ -103,6 +103,12 @@ const LoginPage = ({ setLogin }) => {
                   <label className="block text-[10px] tracking-[0.2em] uppercase text-zinc-500">
                     Password
                   </label>
+                   <Link
+                    href="/auth/forgot-password"
+                    className="text-[10px] tracking-wider text-zinc-500 hover:text-lime-400 transition-colors duration-200 uppercase"
+                  >
+                    Forgot?
+                  </Link>
                 </div>
                 <div className="relative">
                   <input

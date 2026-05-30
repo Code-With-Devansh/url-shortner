@@ -25,7 +25,7 @@ export default function EmailVerificationPage() {
     setLoading(true);
 
     try {
-      await sendVerificationMail();
+      await sendVerificationMail(email);
 
       setResent(true);
 
@@ -40,7 +40,7 @@ export default function EmailVerificationPage() {
   useEffect(() => {
     if (!auth.user) return;
     const es = new EventSource(
-      `${import.meta.env.VITE_API_URL}api/auth/verify-status`,
+      `${import.meta.env.VITE_API_URL}api/auth/verify-status?email=${auth.user.email}`,
       {
         withCredentials: true,
       },

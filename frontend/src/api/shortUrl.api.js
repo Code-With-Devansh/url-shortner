@@ -7,5 +7,5 @@ export const createShortUrl = async (url, user = null, slug = null) => {
 }
 
 export const deleteUrl = async (id) => {
-    await axiosInstance.delete(`/api/delete/${id}`);
+    await axiosInstance.delete(`/api/${id}`);
 }

@@ -4,6 +4,7 @@ import {
 } from "../config/config.js";
 import {
   findUserByEmail,
+  findUserById,
   removePasswordResetToken,
   setEmailVerified,
   updatePassword,
@@ -45,15 +46,14 @@ export const register_user = tryCatch(async (req, res, next) => {
     throw new ValidationError(errors);
   }
 
-  const { accessToken, refreshToken, user } = await registerUser(
+  const { user } = await registerUser(
     name,
     email,
     password,
   );
-  res.cookie("refreshToken", refreshToken, refreshTokenCookieOptions);
   res.status(201).json({
     success: true,
-    data: {...user, accessToken},
+    data: {...user},
     message: "User registered successfully",
   });
 }, "Register user");
@@ -67,7 +67,7 @@ export const login_user = tryCatch(async (req, res, next) => {
   if (!validated.success) {
     throw new ValidationError(generateValidationErrors(validated));
   }
-  const { accessToken, refreshToken, user } = await loginUser(email, password);
+  const { user, accessToken, refreshToken } = await loginUser(email, password);
   res.cookie("refreshToken", refreshToken, refreshTokenCookieOptions);
   res.status(200).json({
     success: true,
@@ -118,13 +118,17 @@ export const logout_user = tryCatch(async (req, res, next) => {
 }, "logout");
 
 export const sendVerificationLink = tryCatch(async (req, res, next) => {
-  const { email } = req.user;
+  const { email } = req.body;
   const validated = UserSchema.pick({ email }).safeParse({ email });
   if (!validated.success) {
     throw new ValidationError(generateValidationErrors(validated));
   }
+  const user = findUserByEmail(email);
+  if(!user) return res.json({success:true, message: "Verification Link Sent" });
+  if (user.isVerified) return res.json({ success: true, message: "Verification Link Sent" }); 
   const token = await generateAndStoreVerificationToken(email);
   await sendEmailVerificationMail(
+    user.name,
     email,
     process.env.BASE_URL + `api/auth/verify-email/${token}`,
   );
@@ -138,9 +142,14 @@ export const verifyEmail = tryCatch(async (req, res, next) => {
     res.send({ success: false, message: "Email verification failed" });
   }
   await setEmailVerified(user);
-  notifyClient(user._id.toString(), "verified", { success: true });
+  const accessToken = await generateAccessToken(user._id.toString());
+  const refreshToken = await generateRefreshToken(user._id.toString());
+  await cacheRefreshToken(refreshToken, user._id);
+  await saveRefreshToken(user, refreshToken);
+  const userObj = user.toJSON();
+  notifyClient(user._id.toString(), "verified", { success: true, user:{...user, accessToken} });
+  res.cookie("refreshToken", refreshToken, refreshTokenCookieOptions);
   res.redirect(process.env.APP_URL + "/auth/email-verified");
-  res.send({ success: true, message: "Email Verified" });
 }, "verify Email");
 
 export const forgotPassword = tryCatch(async (req, res, next) => {
@@ -170,14 +179,17 @@ export const changePassword = tryCatch(async (req, res, next) => {
   res.send({ success: true, message: "password updated successfully." });
 }, "Change Password");
 
-export const verificationStatus = (req, res) => {
-  const userId = req.user._id.toString();
-
+export const verificationStatus = async(req, res) => {
+  const email = req.query.email;
+  const user = await findUserByEmail(email)
+  if(!user){
+    throw new ValidationError("some error occurred.")
+  }
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
   res.flushHeaders();
-
+  const userId = user._id.toString();
   addClient(userId, res);
   logger.info({ userId }, "SSE connection opened");
 
