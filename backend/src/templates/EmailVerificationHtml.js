@@ -195,14 +195,14 @@ export const emailVerificationTemplate = (name, email, link)=>{
 
         <!-- CTA Button -->
         <div class="btn-wrap">
-          <a href="${verificationLink}" class="btn">Verify my email →</a>
+          <a href="${link}" class="btn">Verify my email →</a>
         </div>
 
         <div class="divider"></div>
 
         <!-- Fallback URL -->
         <p class="fallback-label">Or copy this link into your browser</p>
-        <div class="fallback-url">${verificationLink}</div>
+        <div class="fallback-url">${link}</div>
 
         <!-- Expiry notice -->
         <div class="notice">
