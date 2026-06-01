@@ -4,6 +4,7 @@ import { reserveBloom } from "../dao/redirectBloom.redis.js";
 import { ShortUrlSchema } from "../models/shortUrl.model.js";
 import redis from "../config/redis.config.js";
 import logger from "../logger/productionLogger.js";
+import crypto from "crypto";
 
 const scriptLogger = logger.child({
   service: "script",

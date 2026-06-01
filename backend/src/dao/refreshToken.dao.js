@@ -1,14 +1,13 @@
 import { RefreshToken } from "../models/refreshToken.model.js";
 import { refreshTokenCookieOptions } from "../config/config.js";
 
-export const saveRefreshToken = async (user, token) => {
+export const saveRefreshToken = async (userId, token) => {
   let refreshToken = await RefreshToken.findOne({
-    user: user._id,
+    user: userId,
   });
-
   if (!refreshToken) {
     refreshToken = new RefreshToken({
-      user: user._id,
+      user: userId,
       token,
       expiresAt: new Date(Date.now() + refreshTokenCookieOptions.maxAge),
     });
@@ -18,7 +17,6 @@ export const saveRefreshToken = async (user, token) => {
       Date.now() + refreshTokenCookieOptions.maxAge,
     );
   }
-
   await refreshToken.save();
   return refreshToken;
 };

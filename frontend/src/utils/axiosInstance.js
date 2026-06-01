@@ -1,5 +1,4 @@
 import axios from "axios";
-
 const axiosInstance = axios.create({
     baseURL: import.meta.env.VITE_API_URL,
     headers: {
@@ -47,6 +46,21 @@ const getErrorMessage = (error) => {
 
     return error.message || "An unknown error occurred.";
 };
+
+let accessToken = null;
+
+export const setAccessToken = (token) => {
+    console.log("Setting access token:", token);
+  accessToken = token;
+};
+
+axiosInstance.interceptors.request.use((config) => {
+  if (accessToken) {
+    config.headers.Authorization = `Bearer ${accessToken}`;
+  }
+  return config;
+});
+
 
 axiosInstance.interceptors.response.use(
     (response) => response,

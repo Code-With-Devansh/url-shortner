@@ -1,7 +1,8 @@
-import axiosInstance from "../utils/axiosInstance";
+import axiosInstance, { setAccessToken } from "../utils/axiosInstance";
 
 export const loginUser = async(email, password) => {
     const {data} = await axiosInstance.post('/api/auth/login', {email, password});
+    setAccessToken(data.data.accessToken);
     return data.data;
 }
 
@@ -17,7 +18,9 @@ export const logoutUser = async() => {
 
 export const getCurrentUser = async() => {
     const {data} = await axiosInstance.get('/api/auth/me');
-    return data.data;
+    console.log("Current user data:", data.data.user);
+    setAccessToken(data.data.user.accessToken);
+    return data.data.user;
 }
 
 export const getUrls = async() => {

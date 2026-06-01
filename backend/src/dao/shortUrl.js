@@ -46,12 +46,3 @@ export const deleteShortUrlDao = async (id, userId) => {
   });
   return shortUrl;
 };
-
-export const incrementClicks = async (short_url, count=1) => {
-  await ShortUrlSchema.updateOne(
-    { short_url },
-    {
-      $inc: { clicks: Number(count) },
-    },
-  );
-};

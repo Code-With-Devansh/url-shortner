@@ -59,7 +59,6 @@ export const checkIfRefreshTokenExists = async(id, refreshToken) => {
     await cacheRefreshToken(refreshToken, id);
     return true;
   }
-
 };
 
 export const generateAndStoreVerificationToken = async (email) => {
@@ -77,7 +76,7 @@ export const generateAndStorePasswordResetToken = async(email)=>{
   const { token, hashedToken } = generateVerificationToken();
   const user = await findUserByEmail(email);
   if (!user) {
-    throw new NotFoundError("User not found");
+    return null
   }
   await savePasswordResetToken(user, hashedToken);
   return token;

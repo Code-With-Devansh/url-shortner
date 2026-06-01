@@ -4,48 +4,26 @@ import { checkIfRefreshTokenExists } from "../services/auth.service.js";
 import { UnauthorizedError } from "../utils/appError.js";
 import {
   generateAccessToken,
+  getUserByAccessToken,
   verifyRefreshToken,
   verifyToken,
 } from "../utils/helper.js";
 
 export const authMiddleware = async (req, res, next) => {
-  const accessToken = req.cookies.accessToken;
-  const refreshToken = req.cookies.refreshToken;
+  const authHeader = req.headers["authorization"];
+  const accessToken = authHeader?.split(" ")[1];
 
-  if (!accessToken && !refreshToken) {
-    return next(new UnauthorizedError("No tokens provided"));
+  if (!accessToken) {
+    return next(new UnauthorizedError("User Not found"));
   }
-
   try {
-    if (accessToken) {
-      try {
-        const decoded = await verifyToken(accessToken);
-        const user = await findUserById(decoded.userId);
-        if (!user) {
-          res.clearCookie("refreshToken");
-          throw new UnauthorizedError("User not found");
-        }
-        req.user = user;
-        return next();
-      } catch (err) {
-        // Access token failed → continue to refresh
-      }
-    }
-    if (!refreshToken) {
-      throw new UnauthorizedError("Refresh token missing");
-    }
-    const data = await verifyRefreshToken(refreshToken);
-    const stored = await checkIfRefreshTokenExists(data.userId, refreshToken);
-    if (!stored) {
-      throw new UnauthorizedError("Invalid refresh token");
-    }
-    const user = await findUserById(data.userId);
-    if (!user) {
+    const user = await getUserByAccessToken(accessToken);
+    if (user) {
+      req.user = { ...user, accessToken };
+      return next();
+    }else{
       throw new UnauthorizedError("User not found");
     }
-    const newAccessToken = generateAccessToken(data.userId);
-    req.user = {...user.toObject(), accessToken};
-    next();
   } catch (err) {
     next(err);
   }

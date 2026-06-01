@@ -25,6 +25,9 @@ export const createShortUrl = tryCatch(async (req, res, next) => {
     const validated = urlSchema
       .pick({ short_url: true })
       .safeParse({ short_url: slug });
+    if (!validated.success) {
+      throw new ValidationError(generateValidationErrors(validated));
+    }
     const id = await createShortUrlWithUserService(url, req.user._id, slug);
     await addUrlToBloom(id);
     res.status(200).json({ short_url: process.env.BASE_URL + id });
@@ -34,6 +37,7 @@ export const createShortUrl = tryCatch(async (req, res, next) => {
     res.status(200).json({ short_url: process.env.BASE_URL + id });
   }
 }, "Create Short url");
+
 
 export const redirectFromShortUrl = tryCatch(async (req, res, next) => {
   const { shortId } = req.params;
@@ -52,7 +56,10 @@ export const redirectFromShortUrl = tryCatch(async (req, res, next) => {
     fullUrl = shortUrl.full_url;
     cacheUrl(shortId, fullUrl);
   }
-  return res.send(buildRedirectPage(shortId, fullUrl));
+  if (!isValidRedirectUrl(fullUrl)) {
+    throw new ValidationError("Invalid redirect URL");
+  }
+  return res.send(buildRedirectPage(shortId, encodeURIComponent(fullUrl)));
 }, "Redirect from short url");
 
 export const deleteShortUrl = tryCatch(async (req, res, next) => {

@@ -1,4 +1,5 @@
-export function buildRedirectPage(shortId, fullUrl) {
+export function buildRedirectPage(shortId, encodedUrl) {
+  const fullUrl = decodeURIComponent(encodedUrl);
   return `<!DOCTYPE html>
 <html>
   <head>

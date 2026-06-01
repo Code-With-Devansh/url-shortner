@@ -9,26 +9,46 @@ import { attachUser } from "./src/middleware/attachUser.js";
 import userRoute from "./src/routes/user.route.js";
 import cookieParser from "cookie-parser";
 import { requestLogger } from "./src/middleware/requestLogger.js";
-import { success } from "zod";
+import { isShuttingDown } from "./state/shutdown.js";
+import helmet from "helmet";
 const app = express();
-app.use(cors({
-  origin: process.env.APP_URL_CORS,
-  credentials: true,
-}));
+app.use(
+  cors({
+    origin: process.env.APP_URL_CORS,
+    credentials: true,
+  }),
+);
 app.set("trust proxy", 1);
+app.use(helmet());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
-app.use(requestLogger)
+app.use(requestLogger);
+
+app.use((req, res, next) => {
+  if (isShuttingDown()) {
+    return res.status(503).json({
+      success: false,
+      message: "Server shutting down",
+    });
+  }
+  next();
+});
 app.use("/api", shortUrlRoute);
 app.use("/api/auth", authRoute);
-app.use("/api/user", userRoute)
-app.get("/api/health", (req, res) =>{
+app.use("/api/user", userRoute);
+app.get("/api/health", (req, res) => {
+  if (isShuttingDown()) {
+    return res.status(503).json({
+      success: false,
+      status: "shutting_down",
+    });
+  }
   return res.json({
-    success:true
-  })  
-})
+    success: true,
+  });
+});
 app.get("/:shortId", redirectFromShortUrl);
 app.use(errorHandler);
 
-export default app
+export default app;

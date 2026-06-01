@@ -3,6 +3,7 @@ import { jwtVerify, SignJWT } from "jose";
 import { ValidationError } from "./appError.js";
 import crypto from "crypto";
 import {
+  findUserById,
   verifyEmailVerificationTokenDao,
   verifyPasswordResetTokenDao,
 } from "../dao/user.dao.js";
@@ -80,4 +81,23 @@ export const generateValidationErrors = (validated) => {
     }
   });
   return errors;
+};
+
+export const isValidRedirectUrl = (url) => {
+  try {
+    const parsed = new URL(url);
+    return ["http:", "https:"].includes(parsed.protocol);
+  } catch {
+    return false;
+  }
+};
+
+export const getUserByAccessToken = async (accessToken) => {
+  const decoded = await verifyToken(accessToken);
+  const user = await findUserById(decoded.userId);
+  if (!user) {
+    return null;
+  }
+  const userObj = user.toObject();
+  return userObj;
 };

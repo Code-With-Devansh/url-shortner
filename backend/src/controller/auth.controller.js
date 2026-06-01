@@ -46,14 +46,10 @@ export const register_user = tryCatch(async (req, res, next) => {
     throw new ValidationError(errors);
   }
 
-  const { user } = await registerUser(
-    name,
-    email,
-    password,
-  );
+  const { user } = await registerUser(name, email, password);
   res.status(201).json({
     success: true,
-    data: {...user},
+    data: { ...user },
     message: "User registered successfully",
   });
 }, "Register user");
@@ -71,7 +67,7 @@ export const login_user = tryCatch(async (req, res, next) => {
   res.cookie("refreshToken", refreshToken, refreshTokenCookieOptions);
   res.status(200).json({
     success: true,
-    data: {...user, accessToken},
+    data: { ...user, accessToken },
     message: "User logged in successfully",
   });
 }, "Login User");
@@ -86,24 +82,32 @@ export const get_current_user = tryCatch(async (req, res, next) => {
 
 export const refreshAccessToken = tryCatch(async (req, res, next) => {
   const refreshToken = req.cookies.refreshToken;
-  if (!token)
-    return res
-      .status(401)
-      .json({ success: false, message: "No refresh Token" });
+  if (!refreshToken)
+    throw new ValidationError("No refresh token provided. Please login again.");
 
-  const data = verifyRefreshToken(refreshToken);
+  const data = await verifyRefreshToken(refreshToken);
   const userId = data.userId;
-  const stored = checkIfRefreshTokenExists(userId, refreshToken);
-  const newAccessToken = generateAccessToken(userId);
-  const newRefreshToken = generateRefreshToken(userId);
-  cacheRefreshToken(newRefreshToken);
-  saveRefreshToken(newRefreshToken);
+  const stored = await checkIfRefreshTokenExists(userId, refreshToken);
+  if(!stored){
+    throw new ValidationError("Invalid refresh token. Please login again.");
+  }
+  const newAccessToken = await generateAccessToken(userId);
+  const newRefreshToken = await generateRefreshToken(userId);
+  await cacheRefreshToken(userId, newRefreshToken);
+  await saveRefreshToken(userId, newRefreshToken);
   res.cookie("refreshToken", newRefreshToken, refreshTokenCookieOptions);
-  res.json({ success: true, message: "Access Token refreshed.",accessToken});
+  res.json({
+    success: true,
+    message: "Access Token refreshed.",
+    accessToken:newAccessToken,
+  });
 }, "Refresh Access Token");
 
 export const logout_user = tryCatch(async (req, res, next) => {
   const refreshToken = req.cookies.refreshToken;
+  if (!refreshToken) {
+    return res.json({ success: true, message: "Already logged out" });
+  }
   const data = await verifyRefreshToken(refreshToken);
   if (data) {
     const userId = data.userId;
@@ -123,9 +127,11 @@ export const sendVerificationLink = tryCatch(async (req, res, next) => {
   if (!validated.success) {
     throw new ValidationError(generateValidationErrors(validated));
   }
-  const user = findUserByEmail(email);
-  if(!user) return res.json({success:true, message: "Verification Link Sent" });
-  if (user.isVerified) return res.json({ success: true, message: "Verification Link Sent" }); 
+  const user = await findUserByEmail(email);
+  if (!user)
+    return res.json({ success: true, message: "Verification Link Sent" });
+  if (user.isVerified)
+    return res.json({ success: true, message: "Verification Link Sent" });
   const token = await generateAndStoreVerificationToken(email);
   await sendEmailVerificationMail(
     user.name,
@@ -139,7 +145,7 @@ export const verifyEmail = tryCatch(async (req, res, next) => {
   const { token } = req.params;
   const user = await verifyEmailVerificationToken(token);
   if (!user) {
-    res.send({ success: false, message: "Email verification failed" });
+    return res.send({ success: false, message: "Email verification failed" });
   }
   await setEmailVerified(user);
   const accessToken = await generateAccessToken(user._id.toString());
@@ -147,7 +153,10 @@ export const verifyEmail = tryCatch(async (req, res, next) => {
   await cacheRefreshToken(refreshToken, user._id);
   await saveRefreshToken(user, refreshToken);
   const userObj = user.toJSON();
-  notifyClient(user._id.toString(), "verified", { success: true, user:{...user, accessToken} });
+  notifyClient(user._id.toString(), "verified", {
+    success: true,
+    user: { ...userObj, accessToken },
+  });
   res.cookie("refreshToken", refreshToken, refreshTokenCookieOptions);
   res.redirect(process.env.APP_URL + "/auth/email-verified");
 }, "verify Email");
@@ -155,7 +164,13 @@ export const verifyEmail = tryCatch(async (req, res, next) => {
 export const forgotPassword = tryCatch(async (req, res, next) => {
   const { email } = req.body;
   const validated = UserSchema.pick({ email }).safeParse({ email });
+  if (!validated.success) {
+    throw new ValidationError(generateValidationErrors(validated));
+  }
   const token = await generateAndStorePasswordResetToken(email);
+  if (!token) {
+    return res.send({ success: true, message: "Email sent successfully." });
+  }
   await sendpasswordResetMail(
     email,
     process.env.APP_URL + `auth/change-password/${token}`,
@@ -167,7 +182,7 @@ export const changePassword = tryCatch(async (req, res, next) => {
   const { token } = req.params;
   const { password } = req.body;
   const validated = UserSchema.pick({ password: true }).safeParse({ password });
-  if (!validated) {
+  if (!validated.success) {
     throw new ValidationError(generateValidationErrors(validated));
   }
   const user = await verifyPasswordResetToken(token);
@@ -179,22 +194,34 @@ export const changePassword = tryCatch(async (req, res, next) => {
   res.send({ success: true, message: "password updated successfully." });
 }, "Change Password");
 
-export const verificationStatus = async(req, res) => {
+export const verificationStatus = tryCatch(async (req, res, next) => {
   const email = req.query.email;
-  const user = await findUserByEmail(email)
-  if(!user){
-    throw new ValidationError("some error occurred.")
+  const user = await findUserByEmail(email);
+  if (!user) {
+    throw new ValidationError("some error occurred.");
   }
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
   res.flushHeaders();
-  const userId = user._id.toString();
-  addClient(userId, res);
-  logger.info({ userId }, "SSE connection opened");
-
-  req.on("close", () => {
-    removeClient(userId);
-    logger.info({ userId }, "SSE connection closed");
-  });
-};
+  try {
+    const userId = user._id.toString();
+    addClient(userId, res);
+    logger.info({ userId }, "SSE connection opened");
+    const heartbeat = setInterval(() => {
+      res.write(": heartbeat\n\n");
+    }, 30000);
+    req.on("close", () => {
+      clearInterval(heartbeat);
+      removeClient(userId);
+      logger.info({ userId }, "SSE connection closed");
+    });
+  } catch (err) {
+    res.write(
+      `event: error\ndata: ${JSON.stringify({
+        message: "Internal server error",
+      })}\n\n`,
+    );
+    res.end();
+  }
+}, "Verification Status");

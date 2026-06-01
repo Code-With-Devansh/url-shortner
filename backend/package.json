@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "nodemon server.js",
     "cron:flush": "node --env-file=.env src/cron/flushClicks.js",
-    "script:rebuildBloom":"node --env-file=.env src/scripts/rebuildBloom.js",
+    "script:rebuildBloom": "node --env-file=.env src/scripts/rebuildBloom.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node server.js"
   },
@@ -22,6 +22,7 @@
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "express-rate-limit": "^8.5.1",
+    "helmet": "^8.2.0",
     "jose": "^6.2.3",
     "mongoose": "^9.6.1",
     "nanoid": "^5.1.11",

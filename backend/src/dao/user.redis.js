@@ -3,7 +3,7 @@ import redis from '../config/redis.config.js'
 
 const PREFIX = "refresh:";
 
-export const cacheRefreshToken = async(refreshToken, userid)=>{
+export const cacheRefreshToken = async(userid, refreshToken)=>{
     return await redis.set(PREFIX + userid, refreshToken, {
         EX:60*60*24*20
     })

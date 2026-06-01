@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { login } from "../store/slice/authSlice.js";
 import { Link, useNavigate } from "@tanstack/react-router";
 import UserSchema from "../schema/auth.schema.js";
+import { setAccessToken } from "../utils/axiosInstance.js";
 const LoginPage = ({ setLogin }) => {
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
