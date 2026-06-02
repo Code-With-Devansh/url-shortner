@@ -6,8 +6,9 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
-
-.env*
+.env
+.env.*
+!.env.example
 upgrades.txt
 node_modules
 dist

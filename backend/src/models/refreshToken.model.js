@@ -5,7 +5,6 @@ const refreshTokenSchema = new mongoose.Schema({
   user: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",
-    unique: true,
     required: true,
   },
   token: {
@@ -13,13 +12,17 @@ const refreshTokenSchema = new mongoose.Schema({
     required: true,
     index: true,
   },
+  deviceInfo:{
+    name:String,
+    ip:String
+  },
   expiresAt: {
     type: Date,
     required: true,
     expires: 0,
   },
 });
-
+refreshTokenSchema.index({ user: 1, expiresAt: 1 });
 function hashToken(token) {
   return crypto
     .createHash("sha256")

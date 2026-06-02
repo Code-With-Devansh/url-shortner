@@ -9,8 +9,8 @@ import {
   setEmailVerified,
   updatePassword,
 } from "../dao/user.dao.js";
-import { delRefreshToken, saveRefreshToken } from "../dao/refreshToken.dao.js";
-import { cacheRefreshToken, delCachedRefreshToken } from "../dao/user.redis.js";
+import { delAllRefreshTokens, delRefreshToken, saveRefreshToken } from "../dao/refreshToken.dao.js";
+import { cacheRefreshToken, delAllCachedRefreshTokens, delCachedRefreshToken } from "../dao/user.redis.js";
 import {
   checkIfRefreshTokenExists,
   generateAndStorePasswordResetToken,
@@ -32,7 +32,7 @@ import {
   verifyToken,
 } from "../utils/helper.js";
 import tryCatch from "../utils/tryCatch.js";
-import { NotFoundError, ValidationError } from "../utils/appError.js";
+import { NotFoundError, UnauthorizedError, ValidationError } from "../utils/appError.js";
 import UserSchema from "../schema/auth.schema.js";
 import { addClient, notifyClient, removeClient } from "../utils/sseClient.js";
 import logger from "../logger/index.js";
@@ -55,6 +55,10 @@ export const register_user = tryCatch(async (req, res, next) => {
 }, "Register user");
 
 export const login_user = tryCatch(async (req, res, next) => {
+  const deviceInfo = {
+    ip: req.ip,
+    name: req.headers["user-agent"]?.slice(0, 200) ?? "Unknown",
+  };
   const { email, password } = req.body;
   const validated = UserSchema.pick({ email: true, password: true }).safeParse({
     email,
@@ -63,7 +67,7 @@ export const login_user = tryCatch(async (req, res, next) => {
   if (!validated.success) {
     throw new ValidationError(generateValidationErrors(validated));
   }
-  const { user, accessToken, refreshToken } = await loginUser(email, password);
+  const { user, accessToken, refreshToken } = await loginUser(email, password, deviceInfo);
   res.cookie("refreshToken", refreshToken, refreshTokenCookieOptions);
   res.status(200).json({
     success: true,
@@ -88,9 +92,13 @@ export const refreshAccessToken = tryCatch(async (req, res, next) => {
   const data = await verifyRefreshToken(refreshToken);
   const userId = data.userId;
   const stored = await checkIfRefreshTokenExists(userId, refreshToken);
-  if(!stored){
-    throw new ValidationError("Invalid refresh token. Please login again.");
+  if (!stored) {
+    await delAllCachedRefreshTokens(userId);
+    await delAllRefreshTokens(userId);
+    throw new UnauthorizedError("Session expired. Please login again.");
   }
+  await delCachedRefreshToken(userId, refreshToken);
+  await delRefreshToken(userId, refreshToken);
   const newAccessToken = await generateAccessToken(userId);
   const newRefreshToken = await generateRefreshToken(userId);
   await cacheRefreshToken(userId, newRefreshToken);
@@ -99,7 +107,7 @@ export const refreshAccessToken = tryCatch(async (req, res, next) => {
   res.json({
     success: true,
     message: "Access Token refreshed.",
-    accessToken:newAccessToken,
+    accessToken: newAccessToken,
   });
 }, "Refresh Access Token");
 
@@ -108,13 +116,12 @@ export const logout_user = tryCatch(async (req, res, next) => {
   if (!refreshToken) {
     return res.json({ success: true, message: "Already logged out" });
   }
-  const data = await verifyRefreshToken(refreshToken);
+  const data = await verifyRefreshToken(refreshToken).catch(() => null);
   if (data) {
-    const userId = data.userId;
-    await delCachedRefreshToken(userId);
-    await delRefreshToken(userId);
+    await delCachedRefreshToken(data.userId, refreshToken);  
+    await delRefreshToken(data.userId, refreshToken);     
   }
-  res.clearCookie("refreshToken");
+  res.clearCookie("refreshToken");s
   res.json({
     success: true,
     message: "Logout successfully",

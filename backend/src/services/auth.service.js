@@ -29,7 +29,7 @@ export const registerUser = async (name, email, password) => {
   return { user:userObj };
 };
 
-export const loginUser = async (email, password) => {
+export const loginUser = async (email, password, deviceInfo = {}) => {
   const user = await findUserByEmailWithPassword(email);
   if (!user || !(await user.comparePassword(password))) {
     throw new UnauthorizedError("Invalid email or password");
@@ -45,7 +45,7 @@ export const loginUser = async (email, password) => {
   const accessToken = await generateAccessToken(user._id.toString());
   const refreshToken = await generateRefreshToken(user._id.toString());
   await cacheRefreshToken(refreshToken, user._id);
-  await saveRefreshToken(user, refreshToken);
+  await saveRefreshToken(user, refreshToken, deviceInfo);
   return { user:userObj, accessToken, refreshToken };
 };
 
