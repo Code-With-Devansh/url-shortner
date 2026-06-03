@@ -38,4 +38,11 @@ export const forgotPassword = async(email) =>{
 }
 export const changePassword = async (token, password) =>{
     const {data} = await axiosInstance.post('/api/auth/change-password/'+ token, {password})
+    return data;
+}
+
+export const refreshAccessToken = async()=>{
+    const {data} = await axiosInstance.post("/api/auth/refresh");
+    console.log(data)
+    return data.data;
 }

@@ -1,12 +1,8 @@
-import { AccessTokenCookieOptions } from "../config/config.js";
-import { findUserById } from "../dao/user.dao.js";
+
 import { checkIfRefreshTokenExists } from "../services/auth.service.js";
 import { UnauthorizedError } from "../utils/appError.js";
 import {
   generateAccessToken,
-  getUserByAccessToken,
-  verifyRefreshToken,
-  verifyToken,
 } from "../utils/helper.js";
 
 export const authMiddleware = async (req, res, next) => {

@@ -12,9 +12,11 @@ const refreshTokenSchema = new mongoose.Schema({
     required: true,
     index: true,
   },
-  deviceInfo:{
-    name:String,
-    ip:String
+  deviceInfo: {
+    deviceId: { type: String, index: true, required:true }, 
+    ip: String,
+    userAgent: String,
+    lastSeen: Date,
   },
   expiresAt: {
     type: Date,
@@ -23,6 +25,10 @@ const refreshTokenSchema = new mongoose.Schema({
   },
 });
 refreshTokenSchema.index({ user: 1, expiresAt: 1 });
+refreshTokenSchema.index(
+  { user: 1, "deviceInfo.deviceId": 1 },
+  { unique: true }
+);
 function hashToken(token) {
   return crypto
     .createHash("sha256")

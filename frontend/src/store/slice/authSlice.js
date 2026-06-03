@@ -1,5 +1,5 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
-import { getCurrentUser } from "../../api/user.api";
+import { getCurrentUser, refreshAccessToken } from "../../api/user.api";
 
 const initialState = {
   user: null,
@@ -42,6 +42,7 @@ export const initializeAuth = createAsyncThunk(
   "auth/initialize",
   async (_, { rejectWithValue }) => {
     try {
+      const {accessToken} = await refreshAccessToken();
       const user = await getCurrentUser();
       return user;
     } catch {

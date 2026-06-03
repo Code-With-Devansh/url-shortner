@@ -64,7 +64,6 @@ export default function DashboardPage() {
     }
   };
   useEffect(() => {
-    console.log(auth)
     if (!auth.user || !auth.user.isVerified) {
       Navigate({
         to: "/auth",

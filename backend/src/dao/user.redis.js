@@ -1,25 +1,45 @@
 import crypto from "crypto";
-import redis from '../config/redis.config.js'
+import redis from "../config/redis.config.js";
 
-const sessionKey = (userId, token) => {
-  const hash = crypto.createHash("sha256").update(token).digest("hex").slice(0, 16);
-  return `refresh:${userId}:${hash}`;
+const hashToken = (token) =>
+  crypto.createHash("sha256").update(token).digest("hex");
+
+const sessionKey = (userId, deviceId) => `refresh:${userId}:${deviceId}`;
+
+export const cacheRefreshToken = async (userId, refreshToken, deviceId) => {
+  await redis.set(
+    sessionKey(userId, deviceId),
+    hashToken(refreshToken),
+    { EX: 60 * 60 * 24 * 20 }, // 20 days
+  );
 };
 
-
-export const cacheRefreshToken = async (refreshToken, userId) => {
-  await redis.set(sessionKey(userId, refreshToken), "1", { EX: 60 * 60 * 24 * 20 });
+export const getCachedRefreshToken = async (userId, deviceId) => {
+  return redis.get(sessionKey(userId, deviceId));
 };
 
-export const getCachedRefreshToken = async (userId, token) => {
-  return redis.get(sessionKey(userId, token));
+export const checkCachedRefreshToken = async (
+  userId,
+  deviceId,
+  refreshToken,
+) => {
+  const storedHash = await redis.get(sessionKey(userId, deviceId));
+
+  if (!storedHash) return false;
+
+  return storedHash === hashToken(refreshToken);
 };
 
-export const delCachedRefreshToken = async (userId, token) => {
-  await redis.del(sessionKey(userId, token));
+export const delCachedRefreshToken = async (userId, deviceId) => {
+  await redis.del(sessionKey(userId, deviceId));
 };
 
 export const delAllCachedRefreshTokens = async (userId) => {
-  const keys = await redis.keys(`refresh:${userId}:*`);
-  if (keys.length) await redis.del(keys);
+  const pattern = `refresh:${userId}:*`;
+
+  for await (const key of redis.scanIterator({
+    MATCH: pattern,
+  })) {
+    await redis.del(key);
+  }
 };

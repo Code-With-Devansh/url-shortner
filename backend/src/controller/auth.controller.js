@@ -1,5 +1,6 @@
 import {
   AccessTokenCookieOptions,
+  deviceIdCookieOptions,
   refreshTokenCookieOptions,
 } from "../config/config.js";
 import {
@@ -9,8 +10,16 @@ import {
   setEmailVerified,
   updatePassword,
 } from "../dao/user.dao.js";
-import { delAllRefreshTokens, delRefreshToken, saveRefreshToken } from "../dao/refreshToken.dao.js";
-import { cacheRefreshToken, delAllCachedRefreshTokens, delCachedRefreshToken } from "../dao/user.redis.js";
+import {
+  delAllRefreshTokens,
+  delRefreshToken,
+  saveRefreshToken,
+} from "../dao/refreshToken.dao.js";
+import {
+  cacheRefreshToken,
+  delAllCachedRefreshTokens,
+  delCachedRefreshToken,
+} from "../dao/user.redis.js";
 import {
   checkIfRefreshTokenExists,
   generateAndStorePasswordResetToken,
@@ -32,7 +41,11 @@ import {
   verifyToken,
 } from "../utils/helper.js";
 import tryCatch from "../utils/tryCatch.js";
-import { NotFoundError, UnauthorizedError, ValidationError } from "../utils/appError.js";
+import {
+  NotFoundError,
+  UnauthorizedError,
+  ValidationError,
+} from "../utils/appError.js";
 import UserSchema from "../schema/auth.schema.js";
 import { addClient, notifyClient, removeClient } from "../utils/sseClient.js";
 import logger from "../logger/index.js";
@@ -55,10 +68,6 @@ export const register_user = tryCatch(async (req, res, next) => {
 }, "Register user");
 
 export const login_user = tryCatch(async (req, res, next) => {
-  const deviceInfo = {
-    ip: req.ip,
-    name: req.headers["user-agent"]?.slice(0, 200) ?? "Unknown",
-  };
   const { email, password } = req.body;
   const validated = UserSchema.pick({ email: true, password: true }).safeParse({
     email,
@@ -67,7 +76,29 @@ export const login_user = tryCatch(async (req, res, next) => {
   if (!validated.success) {
     throw new ValidationError(generateValidationErrors(validated));
   }
-  const { user, accessToken, refreshToken } = await loginUser(email, password, deviceInfo);
+  let deviceId = req.cookies.deviceId;
+  const isNewDevice = !deviceId;
+  if (isNewDevice) {
+    deviceId = crypto.randomUUID();
+  }
+
+  const deviceInfo = {
+    deviceId,
+    ip: req.ip,
+    userAgent: req.headers["user-agent"]?.slice(0, 200) ?? "Unknown",
+    lastSeen: new Date(),
+  };
+  const { user, accessToken, refreshToken } = await loginUser(
+    email,
+    password,
+    deviceInfo,
+  );
+  if (!accessToken) {
+    throw new UnauthorizedError("User is not Verified.");
+  }
+  if (isNewDevice) {
+    res.cookie("deviceId", deviceId, deviceIdCookieOptions);
+  }
   res.cookie("refreshToken", refreshToken, refreshTokenCookieOptions);
   res.status(200).json({
     success: true,
@@ -86,23 +117,33 @@ export const get_current_user = tryCatch(async (req, res, next) => {
 
 export const refreshAccessToken = tryCatch(async (req, res, next) => {
   const refreshToken = req.cookies.refreshToken;
-  if (!refreshToken)
-    throw new ValidationError("No refresh token provided. Please login again.");
-
+  let deviceId = req.cookies.deviceId;
+  if (!refreshToken || !deviceId)
+    throw new UnauthorizedError("Session expired. Please login again.");
+  const deviceInfo = {
+    deviceId,
+    ip: req.ip,
+    userAgent: req.headers["user-agent"]?.slice(0, 200) ?? "Unknown",
+    lastSeen: new Date(),
+  };
   const data = await verifyRefreshToken(refreshToken);
   const userId = data.userId;
-  const stored = await checkIfRefreshTokenExists(userId, refreshToken);
+  const stored = await checkIfRefreshTokenExists(
+    userId,
+    refreshToken,
+    deviceId,
+  );
   if (!stored) {
     await delAllCachedRefreshTokens(userId);
     await delAllRefreshTokens(userId);
     throw new UnauthorizedError("Session expired. Please login again.");
   }
-  await delCachedRefreshToken(userId, refreshToken);
-  await delRefreshToken(userId, refreshToken);
+  await delCachedRefreshToken(userId, deviceId);
+  await delRefreshToken(userId, deviceId);
   const newAccessToken = await generateAccessToken(userId);
   const newRefreshToken = await generateRefreshToken(userId);
-  await cacheRefreshToken(userId, newRefreshToken);
-  await saveRefreshToken(userId, newRefreshToken);
+  await cacheRefreshToken(userId, newRefreshToken, deviceId);
+  await saveRefreshToken(userId, newRefreshToken, deviceInfo);
   res.cookie("refreshToken", newRefreshToken, refreshTokenCookieOptions);
   res.json({
     success: true,
@@ -113,15 +154,16 @@ export const refreshAccessToken = tryCatch(async (req, res, next) => {
 
 export const logout_user = tryCatch(async (req, res, next) => {
   const refreshToken = req.cookies.refreshToken;
-  if (!refreshToken) {
+  const deviceId = req.cookies.deviceId;
+  if (!refreshToken || !deviceId) {
     return res.json({ success: true, message: "Already logged out" });
   }
   const data = await verifyRefreshToken(refreshToken).catch(() => null);
   if (data) {
-    await delCachedRefreshToken(data.userId, refreshToken);  
-    await delRefreshToken(data.userId, refreshToken);     
+    await delCachedRefreshToken(data.userId, deviceId);
+    await delRefreshToken(data.userId, deviceId);
   }
-  res.clearCookie("refreshToken");s
+  res.clearCookie("refreshToken", refreshTokenCookieOptions);
   res.json({
     success: true,
     message: "Logout successfully",
@@ -154,16 +196,31 @@ export const verifyEmail = tryCatch(async (req, res, next) => {
   if (!user) {
     return res.send({ success: false, message: "Email verification failed" });
   }
+  let deviceId = req.cookies.deviceId;
+  const isNewDevice = !deviceId;
+  if (isNewDevice) {
+    deviceId = crypto.randomUUID();
+  }
+
+  const deviceInfo = {
+    deviceId,
+    ip: req.ip,
+    userAgent: req.headers["user-agent"]?.slice(0, 200) ?? "Unknown",
+    lastSeen: new Date(),
+  };
   await setEmailVerified(user);
   const accessToken = await generateAccessToken(user._id.toString());
   const refreshToken = await generateRefreshToken(user._id.toString());
-  await cacheRefreshToken(refreshToken, user._id);
-  await saveRefreshToken(user, refreshToken);
+  await cacheRefreshToken(user._id, refreshToken, deviceId);
+  await saveRefreshToken(user, refreshToken, deviceInfo);
   const userObj = user.toJSON();
   notifyClient(user._id.toString(), "verified", {
     success: true,
     user: { ...userObj, accessToken },
   });
+  if (isNewDevice) {
+    res.cookie("deviceId", deviceId, deviceIdCookieOptions);
+  }
   res.cookie("refreshToken", refreshToken, refreshTokenCookieOptions);
   res.redirect(process.env.APP_URL + "/auth/email-verified");
 }, "verify Email");
