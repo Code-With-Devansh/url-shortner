@@ -6,7 +6,7 @@ import {
   createShortUrlWithUserService,
 } from "../services/shortUrl.service.js";
 import { NotFoundError, ValidationError } from "../utils/appError.js";
-import { generateValidationErrors } from "../utils/helper.js";
+import { generateValidationErrors, isValidRedirectUrl } from "../utils/helper.js";
 import { buildRedirectPage } from "../utils/redirectPage.js";
 import tryCatch from "../utils/tryCatch.js";
 import { incrementClicks } from "../dao/clicks.redis.js";

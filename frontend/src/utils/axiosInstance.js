@@ -50,7 +50,6 @@ const getErrorMessage = (error) => {
 let accessToken = null;
 
 export const setAccessToken = (token) => {
-    console.log("Setting access token:", token);
   accessToken = token;
 };
 

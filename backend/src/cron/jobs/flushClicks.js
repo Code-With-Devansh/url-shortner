@@ -1,5 +1,3 @@
-import { getClickKeys, getKeyAndDel } from "../../dao/clicks.redis.js";
-import { incrementClicks } from "../../dao/shortUrl.js";
 import { ShortUrlSchema } from "../../models/shortUrl.model.js";
 import redis from '../../config/redis.config.js'
 export async function flushClicksToDB() {

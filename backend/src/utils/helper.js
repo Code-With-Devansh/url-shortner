@@ -93,11 +93,16 @@ export const isValidRedirectUrl = (url) => {
 };
 
 export const getUserByAccessToken = async (accessToken) => {
-  const decoded = await verifyToken(accessToken);
-  const user = await findUserById(decoded.userId);
-  if (!user) {
-    return null;
+  try{
+
+    const decoded = await verifyToken(accessToken);
+    const user = await findUserById(decoded.userId);
+    if (!user) {
+      return null;
+    }
+    const userObj = user.toObject();
+    return userObj;
+  }catch(err){
+    return null
   }
-  const userObj = user.toObject();
-  return userObj;
 };
