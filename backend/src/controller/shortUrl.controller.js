@@ -22,11 +22,13 @@ export const createShortUrl = tryCatch(async (req, res, next) => {
   }
   if (req.user) {
     const slug = req.body.slug;
-    const validated = urlSchema
+    if(slug && slug.length>0){
+      const validated = urlSchema
       .pick({ short_url: true })
       .safeParse({ short_url: slug });
-    if (!validated.success) {
-      throw new ValidationError(generateValidationErrors(validated));
+      if (!validated.success) {
+        throw new ValidationError(generateValidationErrors(validated));
+      }
     }
     const id = await createShortUrlWithUserService(url, req.user._id, slug);
     await addUrlToBloom(id);

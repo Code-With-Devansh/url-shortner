@@ -3,6 +3,7 @@ import { checkIfRefreshTokenExists } from "../services/auth.service.js";
 import { UnauthorizedError } from "../utils/appError.js";
 import {
   generateAccessToken,
+  getUserByAccessToken,
 } from "../utils/helper.js";
 
 export const authMiddleware = async (req, res, next) => {

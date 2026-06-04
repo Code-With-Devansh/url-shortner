@@ -1,13 +1,26 @@
 import React, { useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { deleteUrl } from "../api/shortUrl.api";
-import { removeUrl } from "../store/slice/allUrlsSlice";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { getUrls } from "../api/user.api";
 
 const UserUrls = () => {
   const [copied, setCopied] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
   const [search, setSearch] = useState("");
-  const urls = useSelector((state) => state.urls.urls);
+  const queryClient = useQueryClient();
+  const {
+    data: urls = [],
+    isLoading,
+    isError,
+    error,
+  } = useQuery({
+    queryKey: ["urls"],
+    queryFn: getUrls,
+    staleTime: 60_000,
+    refetchInterval: 60_000,
+    refetchIntervalInBackground: false,
+  });
   const BASE = import.meta.env.VITE_API_URL;
   const handleCopy = (slug) => {
     navigator.clipboard.writeText(BASE + slug);
@@ -15,11 +28,17 @@ const UserUrls = () => {
     setTimeout(() => setCopied(null), 2000);
   };
   const dispatch = useDispatch();
-  const handleDelete = (id) => {
-    deleteUrl(id);
-    dispatch(removeUrl(id));
-    urls.filter((u) => u._id !== id);
+  const handleDelete = async (id) => {
+    const prev = queryClient.getQueryData(["urls"]);
+    queryClient.setQueryData(["urls"], (old) =>
+      old.filter((u) => u._id !== id),
+    );
     setDeleteId(null);
+    try {
+      await deleteUrl(id);
+    } catch {
+      queryClient.setQueryData(["urls"], prev); // rollback on error
+    }
   };
 
   const filtered = urls?.filter(
@@ -86,7 +105,7 @@ const UserUrls = () => {
                   {copied === url.short_url ? "✓ Copied" : "Copy"}
                 </button>
                 <a
-                  href={url.full_url}
+                  href={BASE + url.short_url}
                   target="_blank"
                   rel="noreferrer"
                   className="text-[10px] tracking-widest uppercase border border-zinc-700 text-zinc-500 hover:border-zinc-400 hover:text-zinc-300 rounded px-3 py-1.5 transition-all duration-200"

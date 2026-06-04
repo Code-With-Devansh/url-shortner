@@ -6,7 +6,6 @@ import UserMenu from "./UserMenu";
 
 export default function Navbar({ setSideOpen }) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const { isAuthenticated } = useSelector((state) => state.auth);
   const { user, loading } = useSelector((state) => state.auth);
   return (
     <nav className="sticky top-0 z-50 w-full bg-zinc-900 border-b border-zinc-800 font-mono">

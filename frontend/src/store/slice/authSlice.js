@@ -1,12 +1,16 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import { getCurrentUser, refreshAccessToken } from "../../api/user.api";
+import { setAccessToken } from "../../utils/axiosInstance";
 
 const initialState = {
   user: null,
   loading: true,
   error: null,
 };
-
+export let authInitPromise = null;
+export const setAuthInitPromise = (promise) => {
+  authInitPromise = promise;
+}
 const authSlice = createSlice({
   name: "auth",
   initialState,
@@ -42,7 +46,6 @@ export const initializeAuth = createAsyncThunk(
   "auth/initialize",
   async (_, { rejectWithValue }) => {
     try {
-      const {accessToken} = await refreshAccessToken();
       const user = await getCurrentUser();
       return user;
     } catch {

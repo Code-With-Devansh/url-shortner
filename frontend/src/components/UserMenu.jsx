@@ -3,6 +3,7 @@ import { logout } from '../store/slice/authSlice';
 import { useDispatch } from 'react-redux';
 import { Link } from '@tanstack/react-router';
 import { logoutUser } from '../api/user.api';
+import { clearAccessToken } from '../utils/axiosInstance';
 const UserMenu = ({ user }) =>{
   const dispatch = useDispatch();
   const [open, setOpen] = useState(false);
@@ -21,6 +22,7 @@ const UserMenu = ({ user }) =>{
   const handleLogout = async() => {
     setOpen(false);
     await logoutUser()
+    clearAccessToken()
     dispatch(logout());
   };
 

@@ -2,8 +2,7 @@ import { QueryClient, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { getUrls } from "../api/user.api";
 import StatCard from "../components/StatCard";
-import { addUrl, setUrl } from "../store/slice/allUrlsSlice";
-import { useDispatch, useSelector } from "react-redux";
+import { useSelector } from "react-redux";
 import UserUrls from "../components/UserUrls";
 import { createShortUrl } from "../api/shortUrl.api";
 import { useNavigate } from "@tanstack/react-router";
@@ -23,17 +22,12 @@ export default function DashboardPage() {
   } = useQuery({
     queryKey: ["urls"],
     queryFn: getUrls,
-    refetchInterval: 30000,
-    staleTime: 0,
+    staleTime: 60_000,          
+  refetchInterval: 60_000,   
+  refetchIntervalInBackground: false
   });
   const queryClient = useQueryClient();
-  const dispatch = useDispatch();
   const auth = useSelector((state) => state.auth);
-  useEffect(() => {
-  if (url) {
-    dispatch(setUrl(url));
-  }
-}, [url, dispatch]);
   const handleCreate = async () => {
     if (!auth.user) {
       Navigate({
@@ -43,7 +37,6 @@ export default function DashboardPage() {
     }
     try {
       if (form.short_url == "") {
-        form.short_url = undefined;
         const validationResult = urlSchema.pick({ full_url: true }).parse(form);
       } else {
         const validationResult = urlSchema.parse(form);

@@ -43,6 +43,5 @@ export const changePassword = async (token, password) =>{
 
 export const refreshAccessToken = async()=>{
     const {data} = await axiosInstance.post("/api/auth/refresh");
-    console.log(data)
-    return data.data;
+    return data;
 }
