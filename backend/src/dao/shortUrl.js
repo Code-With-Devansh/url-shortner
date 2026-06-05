@@ -22,10 +22,6 @@ export const saveShortUrl = async (url, id, userId) => {
 
 export const findShortUrl = async (shortId) => {
   const shortUrl = await ShortUrlSchema.findOne({ short_url: shortId });
-  if (shortUrl) {
-    shortUrl.clicks += 1;
-    await shortUrl.save();
-  }
   return shortUrl;
 };
 

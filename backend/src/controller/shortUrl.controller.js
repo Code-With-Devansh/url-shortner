@@ -6,11 +6,17 @@ import {
   createShortUrlWithUserService,
 } from "../services/shortUrl.service.js";
 import { NotFoundError, ValidationError } from "../utils/appError.js";
-import { generateValidationErrors, isValidRedirectUrl } from "../utils/helper.js";
+import {
+  generateValidationErrors,
+  isValidRedirectUrl,
+} from "../utils/helper.js";
 import { buildRedirectPage } from "../utils/redirectPage.js";
 import tryCatch from "../utils/tryCatch.js";
 import { incrementClicks } from "../dao/clicks.redis.js";
-import { addUrlToBloom, checkIfExistinBloom } from "../dao/redirectBloom.redis.js";
+import {
+  addUrlToBloom,
+  checkIfExistinBloom,
+} from "../dao/redirectBloom.redis.js";
 
 export const createShortUrl = tryCatch(async (req, res, next) => {
   const { url } = req.body;
@@ -22,10 +28,10 @@ export const createShortUrl = tryCatch(async (req, res, next) => {
   }
   if (req.user) {
     const slug = req.body.slug;
-    if(slug && slug.length>0){
+    if (slug && slug.length > 0) {
       const validated = urlSchema
-      .pick({ short_url: true })
-      .safeParse({ short_url: slug });
+        .pick({ short_url: true })
+        .safeParse({ short_url: slug });
       if (!validated.success) {
         throw new ValidationError(generateValidationErrors(validated));
       }
@@ -35,11 +41,10 @@ export const createShortUrl = tryCatch(async (req, res, next) => {
     res.status(200).json({ short_url: process.env.BASE_URL + id });
   } else {
     const id = await createShortUrlwithoutUserService(url);
-    await addUrlToBloom(id)
+    await addUrlToBloom(id);
     res.status(200).json({ short_url: process.env.BASE_URL + id });
   }
 }, "Create Short url");
-
 
 export const redirectFromShortUrl = tryCatch(async (req, res, next) => {
   const { shortId } = req.params;
@@ -52,7 +57,7 @@ export const redirectFromShortUrl = tryCatch(async (req, res, next) => {
 
   if (!cached) {
     const shortUrl = await findShortUrl(shortId);
-    if (!shortUrl || !shortUrl.isactive) {
+    if (!shortUrl || !(shortUrl.isActive)) {
       throw new NotFoundError("Short URL not found");
     }
     fullUrl = shortUrl.full_url;

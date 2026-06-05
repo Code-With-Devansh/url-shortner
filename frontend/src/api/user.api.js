@@ -22,10 +22,27 @@ export const getCurrentUser = async() => {
     return data.data;
 }
 
-export const getUrls = async() => {
-    const {data} = await axiosInstance.get('/api/user/urls');
-    return data.urls;
-}
+export const getUrls = async ({
+  cursor,
+  search,
+  sortBy = "createdAt",
+  order = "desc",
+  isActive,
+  limit = 20,
+} = {}) => {
+  const params = new URLSearchParams();
+ 
+  if (cursor)   params.set("cursor", cursor);
+  if (search)   params.set("search", search);
+  if (isActive !== undefined) params.set("isActive", isActive);
+ 
+  params.set("sortBy", sortBy);
+  params.set("order", order);
+  params.set("limit", String(limit));
+ 
+  const { data } = await axiosInstance.get(`/api/user/urls?${params.toString()}`);
+  return data;
+};
 
 export const sendVerificationMail = async(email) =>{
     const {data} = await axiosInstance.post("/api/auth/send-verification-link", {email})

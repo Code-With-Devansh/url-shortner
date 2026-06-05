@@ -14,18 +14,15 @@ export default function DashboardPage() {
   const [formError, setFormError] = useState("");
   const [loading, setLoading] = useState(false);
   const Navigate = useNavigate();
-  const {
-    data: url,
-    isLoading,
-    isError,
-    error,
-  } = useQuery({
-    queryKey: ["urls"],
-    queryFn: getUrls,
-    staleTime: 60_000,          
-  refetchInterval: 60_000,   
-  refetchIntervalInBackground: false
-  });
+  const url = [
+    {
+      id: "6a21c4630bc4b77698b0fe6f",
+      full_url: "https://claude.ai/chat/172b88f2-277a-4217-92cf-faaa74e23cf4",
+      short_url: "http://localhost:5000/XC4Fr6Y",
+      clicks: 0,
+      createdAt: "2026-06-04T18:30:59.781Z",
+    },
+  ];
   const queryClient = useQueryClient();
   const auth = useSelector((state) => state.auth);
   const handleCreate = async () => {
@@ -55,7 +52,7 @@ export default function DashboardPage() {
       }
     } catch (err) {
       setFormError(err.message);
-    }finally{
+    } finally {
       setLoading(false);
     }
   };
@@ -94,10 +91,12 @@ export default function DashboardPage() {
           />
           <StatCard
             label="Top Link"
-            value={ (url && url.length>0)?
-              BASE_URL +
-                [...(url || [])].sort((a, b) => b.clicks - a.clicks)[0]
-                  ?.short_url ?? "—":"-"
+            value={
+              url && url.length > 0
+                ? (BASE_URL +
+                    [...(url || [])].sort((a, b) => b.clicks - a.clicks)[0]
+                      ?.short_url ?? "—")
+                : "-"
             }
             icon="🏆"
             link={true}
@@ -106,7 +105,11 @@ export default function DashboardPage() {
           <StatCard
             link={true}
             label="Newest"
-            value={(url && url.length>0)?BASE_URL + url?.[0]?.short_url ?? "—":"-"}
+            value={
+              url && url.length > 0
+                ? (BASE_URL + url?.[0]?.short_url ?? "—")
+                : "-"
+            }
             icon="✨"
             mono
           />
@@ -188,7 +191,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Links table */}
-        <UserUrls/>
+        <UserUrls />
         <link
           rel="stylesheet"
           href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&display=swap"

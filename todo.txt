@@ -14,7 +14,7 @@
 12. some modularity
 13. show preview before redirecting to the page... also one more thing to think either count click on backend or frontend...
 14. Store Device IDs in a Set ref: http://localhost:5000/rRIyxOw
-
+15. visual issues with the font and font color
 
 bugs:
 2. for logs: Vector Config,  Docker Compose  ref: https://claude.ai/chat/54b99c02-ca36-4d1c-936a-58d55cfdae68
