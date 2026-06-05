@@ -41,6 +41,7 @@ export default function DashboardPage() {
       } else {
         const validationResult = urlSchema.parse(form);
       }
+      setLoading(true);
       const newShortUrl = await createShortUrl(
         form.full_url,
         auth.user._id,
@@ -54,6 +55,8 @@ export default function DashboardPage() {
       }
     } catch (err) {
       setFormError(err.message);
+    }finally{
+      setLoading(false);
     }
   };
   useEffect(() => {

@@ -1,0 +1,32 @@
+0. add analytics apis: http://localhost:5000/dr7VaG1
+0.1 some frontend improvements.. decide weather sorting/filtering/searching happens on frontend or backend..
+0.2 When $text is present, MongoDB cannot use the compound { user, createdAt }. index simultaneously. For high-traffic apps consider Atlas Search instead.
+1. google Oauth
+2. add terms and policy
+3. better error handler with all the required codes.
+4. rate limiter is not made yet.
+5. Range-Based ID Generation  https://claude.ai/chat/18fa9123-b42c-4625-9c00-ea66cf79e380
+6. normalise input: sushil@gmail.com = Sushil@gmail.com.
+7. Docker support
+8. CI/CD
+9. monitoring
+10. API docs
+12. some modularity
+13. show preview before redirecting to the page... also one more thing to think either count click on backend or frontend...
+14. Store Device IDs in a Set ref: http://localhost:5000/rRIyxOw
+
+
+bugs:
+2. for logs: Vector Config,  Docker Compose  ref: https://claude.ai/chat/54b99c02-ca36-4d1c-936a-58d55cfdae68
+4. logging out during email verification raises a bug.
+5. dashboard if there is no link it is still clickable.  (top link, newest)
+
+
+features for testing:
+1. forgot password.
+2. access token refresh token. access token moved to store... not configured in backend.
+11. multiple devices refreshtoken.
+
+arch Issues:
+4. CORS origin is a single string — no multi-origin or regex support
+APP_URL_CORS is a plain string. If you ever need staging + production origins, you'll need to refactor. Also, there's no fallback if the env var is missing — CORS will silently block all cross-origin requests with no error. Validate required env vars at startup.

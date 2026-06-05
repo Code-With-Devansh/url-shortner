@@ -9,7 +9,6 @@ lerna-debug.log*
 .env
 .env.*
 !.env.example
-upgrades.txt
 node_modules
 dist
 dist-ssr

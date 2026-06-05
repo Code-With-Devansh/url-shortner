@@ -34,11 +34,6 @@ export const findShortUrlbySlug = async (slug) => {
   return shortUrl;
 };
 
-export const getUserUrls = async (userId) => {
-  const urls = await ShortUrlSchema.find({ user: userId });
-  return urls;
-};
-
 export const deleteShortUrlDao = async (id, userId) => {
   const shortUrl = await ShortUrlSchema.findOneAndDelete({
     _id: id,
@@ -46,3 +41,13 @@ export const deleteShortUrlDao = async (id, userId) => {
   });
   return shortUrl;
 };
+
+
+export const queryShortUrls = async (query, search) => {
+  const {filter, sort, limit} = query;
+  let mongooseQuery = ShortUrlSchema.find(filter).sort(sort).limit(limit).lean();
+  if (search) {
+    mongooseQuery = mongooseQuery.select({ score: { $meta: "textScore" } });
+  }
+  return await mongooseQuery;
+}
