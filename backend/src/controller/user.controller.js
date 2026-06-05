@@ -9,8 +9,6 @@ export const getAllUserUrls = tryCatch(async (req, res) => {
   const params = parseUrlQueryParams(req.query);
  
   const { urls, hasMore, nextCursor } = await getUserUrls(_id, params);
-  console.log("################################")
-  console.log(urls)
   res.status(200).json(
     toUrlListDTO({
       urls,
