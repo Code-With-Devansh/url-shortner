@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "nodemon server.js",
     "cron:flush": "node --env-file=.env src/cron/flushClicks.js",
+    "cron:analyticsWorker": "node --env-file=.env src/cron/analyticsWorker.js",
     "script:rebuildBloom": "node --env-file=.env src/scripts/rebuildBloom.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node server.js"
@@ -16,6 +17,7 @@
   "type": "module",
   "dependencies": {
     "@axiomhq/pino": "^1.6.1",
+    "@maxmind/geoip2-node": "github:maxmind/geoip2-node",
     "argon2": "^0.44.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
@@ -33,6 +35,8 @@
     "rate-limit-redis": "^5.0.0",
     "redis": "^5.12.1",
     "resend": "^6.12.3",
+    "tar": "^7.5.16",
+    "ua-parser-js": "^2.0.10",
     "zod": "^4.4.3"
   },
   "devDependencies": {

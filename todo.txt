@@ -1,6 +1,9 @@
-0. add analytics apis: http://localhost:5000/dr7VaG1
-0.1 some frontend improvements.. decide weather sorting/filtering/searching happens on frontend or backend..
+0. add analytics apis: http://localhost:5000/dr7VaG1. good learning must write down: ref: http://localhost:5000/OuR2SvW
+0.01. trackClick does a findShortUrlbySlug DB call on every click — this is a second DB hit in addition to the Bloom+cache lookup in redirectFromShortUrl. Worth checking how it's wired in routes.
+0.1 retention is set to 90 days in helper/analytics.js. inspection remaining.
 0.2 When $text is present, MongoDB cannot use the compound { user, createdAt }. index simultaneously. For high-traffic apps consider Atlas Search instead.
+0.3 add dto for every route.
+0.4 get country for analytics. device not setting up in analytics.
 1. google Oauth
 2. add terms and policy
 3. better error handler with all the required codes.

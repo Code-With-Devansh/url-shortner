@@ -1,6 +1,7 @@
-import { deleteShortUrlDao, findShortUrl } from "../dao/shortUrl.js";
+import { deleteShortUrlDao, findShortUrl, findShortUrlbySlug } from "../dao/shortUrl.js";
 import { cacheUrl, deleteCachedUrl, getCachedUrl } from "../dao/url.redis.js";
 import urlSchema from "../schema/url.schema.js";
+import { UAParser } from "ua-parser-js";
 import {
   createShortUrlwithoutUserService,
   createShortUrlWithUserService,
@@ -17,7 +18,9 @@ import {
   addUrlToBloom,
   checkIfExistinBloom,
 } from "../dao/redirectBloom.redis.js";
-
+import { recordClick } from "../utils/analytics.js";
+import { getCountry } from "../utils/geo.js";
+import crypto from "crypto";
 export const createShortUrl = tryCatch(async (req, res, next) => {
   const { url } = req.body;
   const validated = urlSchema
@@ -57,7 +60,7 @@ export const redirectFromShortUrl = tryCatch(async (req, res, next) => {
 
   if (!cached) {
     const shortUrl = await findShortUrl(shortId);
-    if (!shortUrl || !(shortUrl.isActive)) {
+    if (!shortUrl || !shortUrl.isActive) {
       throw new NotFoundError("Short URL not found");
     }
     fullUrl = shortUrl.full_url;
@@ -83,6 +86,22 @@ export const deleteShortUrl = tryCatch(async (req, res, next) => {
 
 export const trackClick = tryCatch(async (req, res) => {
   const { shortId } = req.params;
-  await incrementClicks(shortId);
+  const shortUrl = await findShortUrlbySlug(shortId);
+  const ua = new UAParser(req.headers["user-agent"]).getResult();
+  const ip = req.ip || req.headers["x-forwarded-for"]?.split(",")[0];
+  // const country = getCountry(ip);
+  const country = "IN";
+  let referer = "direct";
+  try {
+    if (req.headers.referer) {
+      referer = new URL(req.headers.referer).hostname;
+    }
+  } catch {}
+  const visitorHash = crypto
+    .createHash("sha256")
+    .update(`${ip}:${req.headers["user-agent"]}`)
+    .digest("hex");
+  // await incrementClicks(shortId);
+  await recordClick(shortUrl._id.toString(), ua, visitorHash, country, referer);
   res.sendStatus(204);
 }, "Track click");

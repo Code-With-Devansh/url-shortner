@@ -47,3 +47,8 @@ export const queryShortUrls = async (query, search) => {
   }
   return await mongooseQuery;
 }
+
+export const findShortUrlByIdForUser = async (id, userId) => {
+  return ShortUrlSchema.findOne({ _id: id, user: userId }).lean();
+};
+ 

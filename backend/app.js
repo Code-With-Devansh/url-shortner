@@ -11,6 +11,8 @@ import cookieParser from "cookie-parser";
 import { requestLogger } from "./src/middleware/requestLogger.js";
 import { isShuttingDown } from "./state/shutdown.js";
 import helmet from "helmet";
+import analyticsRoute from "./src/routes/analytics.route.js";
+
 const app = express();
 app.use(
   cors({
@@ -36,6 +38,7 @@ app.use((req, res, next) => {
   next();
 });
 app.use("/api", shortUrlRoute);
+app.use("/api/analytics", analyticsRoute);
 app.use("/api/auth", authRoute);
 app.use("/api/user", userRoute);
 app.get("/api/health", (req, res) => {

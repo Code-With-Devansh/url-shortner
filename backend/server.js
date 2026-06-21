@@ -4,6 +4,7 @@ import redis, { redisConnection } from "./src/config/redis.config.js";
 import logger from "./src/logger/index.js";
 import { mongoConnection } from "./src/config/mongo.config.js";
 import { setShuttingDown } from "./state/shutdown.js";
+import { initGeo } from "./src/utils/geo.js";
 
 let server;
 let isShuttingDown = false;
