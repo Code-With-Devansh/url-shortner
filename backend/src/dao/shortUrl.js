@@ -20,8 +20,8 @@ export const saveShortUrl = async (url, id, userId) => {
   }
 };
 
-export const findShortUrl = async (shortId) => {
-  const shortUrl = await ShortUrlSchema.findOne({ short_url: shortId });
+export const findShortUrl = async (id) => {
+  const shortUrl = await ShortUrlSchema.findOne({ _id: id });
   return shortUrl;
 };
 

@@ -4,6 +4,7 @@
 0.2 When $text is present, MongoDB cannot use the compound { user, createdAt }. index simultaneously. For high-traffic apps consider Atlas Search instead.
 0.3 add dto for every route.
 0.4 get country for analytics. device not setting up in analytics.
+0.5 make the app consistent by using withCache fn everytime when caching. also storing all the keys at cacheKeys.js
 1. google Oauth
 2. add terms and policy
 3. better error handler with all the required codes.
@@ -23,6 +24,7 @@ bugs:
 2. for logs: Vector Config,  Docker Compose  ref: https://claude.ai/chat/54b99c02-ca36-4d1c-936a-58d55cfdae68
 4. logging out during email verification raises a bug.
 5. dashboard if there is no link it is still clickable.  (top link, newest)
+uniqueVisitors summed across days is an upper bound, not a true unique count. This is a known limitation of the daily-HLL-bucket design, not a bug — a visitor who clicks on both June 1 and June 2 gets counted twice in a 30-day summary. If you ever need a true unique-over-range count, you'd PFMERGE the daily HLL keys in Redis before they get flushed/deleted, rather than summing the post-flush MongoDB numbers. Worth a comment in the code so a future you doesn't assume it's exact — I left one in analytics.service.js
 
 
 features for testing:
@@ -33,3 +35,6 @@ features for testing:
 arch Issues:
 4. CORS origin is a single string — no multi-origin or regex support
 APP_URL_CORS is a plain string. If you ever need staging + production origins, you'll need to refactor. Also, there's no fallback if the env var is missing — CORS will silently block all cross-origin requests with no error. Validate required env vars at startup.
+
+
+

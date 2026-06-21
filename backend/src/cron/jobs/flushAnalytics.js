@@ -1,6 +1,6 @@
 import { saveClickBucket } from "../../dao/clickBucket.dao.js";
 import redis from "../../config/redis.config.js";
-
+import { invalidateAnalyticsCache } from "../../utils/cacheKeys.js";
 const RETENTION_DAYS = 90;
 
 export async function flushAnalyticsKey(key) {
@@ -51,4 +51,6 @@ export async function flushAnalyticsKey(key) {
 
   await redis.del([key, hllKey]);
   await redis.sRem("analytics:active", key);
+
+  await invalidateAnalyticsCache(urlId);
 }

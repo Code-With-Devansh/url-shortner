@@ -59,7 +59,7 @@ export const redirectFromShortUrl = tryCatch(async (req, res, next) => {
   let fullUrl = cached;
 
   if (!cached) {
-    const shortUrl = await findShortUrl(shortId);
+    const shortUrl = await findShortUrlbySlug(shortId);
     if (!shortUrl || !shortUrl.isActive) {
       throw new NotFoundError("Short URL not found");
     }
