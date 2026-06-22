@@ -1,10 +1,6 @@
-0. add analytics apis: http://localhost:5000/dr7VaG1. good learning must write down: ref: http://localhost:5000/OuR2SvW
-0.01. trackClick does a findShortUrlbySlug DB call on every click — this is a second DB hit in addition to the Bloom+cache lookup in redirectFromShortUrl. Worth checking how it's wired in routes.
 0.1 retention is set to 90 days in helper/analytics.js. inspection remaining.
 0.2 When $text is present, MongoDB cannot use the compound { user, createdAt }. index simultaneously. For high-traffic apps consider Atlas Search instead.
-0.3 add dto for every route.
 0.4 get country for analytics. device not setting up in analytics.
-0.5 make the app consistent by using withCache fn everytime when caching. also storing all the keys at cacheKeys.js
 1. google Oauth
 2. add terms and policy
 3. better error handler with all the required codes.
@@ -21,6 +17,7 @@
 15. visual issues with the font and font color
 
 bugs:
+1. if i verify email from another chrome user id then cookies are not set to main chrome user that causes refreshtoken to not been set to the main chrome instance.
 2. for logs: Vector Config,  Docker Compose  ref: https://claude.ai/chat/54b99c02-ca36-4d1c-936a-58d55cfdae68
 4. logging out during email verification raises a bug.
 5. dashboard if there is no link it is still clickable.  (top link, newest)
@@ -29,8 +26,6 @@ uniqueVisitors summed across days is an upper bound, not a true unique count. Th
 
 features for testing:
 1. forgot password.
-2. access token refresh token. access token moved to store... not configured in backend.
-11. multiple devices refreshtoken.
 
 arch Issues:
 4. CORS origin is a single string — no multi-origin or regex support

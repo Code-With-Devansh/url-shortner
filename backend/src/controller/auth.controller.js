@@ -49,6 +49,12 @@ import {
 import UserSchema from "../schema/auth.schema.js";
 import { addClient, notifyClient, removeClient } from "../utils/sseClient.js";
 import logger from "../logger/index.js";
+import {
+  toUserDTO,
+  toLoginResponseDTO,
+  toRegisterResponseDTO,
+  toAuthResponseDTO,
+} from "../dto/auth.dto.js";
 
 export const register_user = tryCatch(async (req, res, next) => {
   const { name, email, password } = req.body;
@@ -60,11 +66,7 @@ export const register_user = tryCatch(async (req, res, next) => {
   }
 
   const { user } = await registerUser(name, email, password);
-  res.status(201).json({
-    success: true,
-    data: { ...user },
-    message: "User registered successfully",
-  });
+  res.status(201).json(toRegisterResponseDTO(user));
 }, "Register user");
 
 export const login_user = tryCatch(async (req, res, next) => {
@@ -100,17 +102,13 @@ export const login_user = tryCatch(async (req, res, next) => {
     res.cookie("deviceId", deviceId, deviceIdCookieOptions);
   }
   res.cookie("refreshToken", refreshToken, refreshTokenCookieOptions);
-  res.status(200).json({
-    success: true,
-    data: { ...user, accessToken },
-    message: "User logged in successfully",
-  });
+  res.status(200).json(toLoginResponseDTO(user, accessToken));
 }, "Login User");
 
 export const get_current_user = tryCatch(async (req, res, next) => {
   res.status(200).json({
     success: true,
-    data: req.user,
+    data: toUserDTO(req.user),
     message: "Current user fetched successfully",
   });
 }, "get Current User");
@@ -156,7 +154,7 @@ export const logout_user = tryCatch(async (req, res, next) => {
   const refreshToken = req.cookies.refreshToken;
   const deviceId = req.cookies.deviceId;
   if (!refreshToken || !deviceId) {
-    return res.json({ success: true, message: "Already logged out" });
+    return res.json(toAuthResponseDTO("Already logged out"));
   }
   const data = await verifyRefreshToken(refreshToken).catch(() => null);
   if (data) {
@@ -164,10 +162,7 @@ export const logout_user = tryCatch(async (req, res, next) => {
     await delRefreshToken(data.userId, deviceId);
   }
   res.clearCookie("refreshToken", refreshTokenCookieOptions);
-  res.json({
-    success: true,
-    message: "Logout successfully",
-  });
+  res.json(toAuthResponseDTO("Logout successfully"));
 }, "logout");
 
 export const sendVerificationLink = tryCatch(async (req, res, next) => {
@@ -178,16 +173,16 @@ export const sendVerificationLink = tryCatch(async (req, res, next) => {
   }
   const user = await findUserByEmail(email);
   if (!user)
-    return res.json({ success: true, message: "Verification Link Sent" });
+    return res.json(toAuthResponseDTO("Verification Link Sent"));
   if (user.isVerified)
-    return res.json({ success: true, message: "Verification Link Sent" });
+    return res.json(toAuthResponseDTO("Verification Link Sent"));
   const token = await generateAndStoreVerificationToken(email);
   await sendEmailVerificationMail(
     user.name,
     email,
     process.env.BASE_URL + `api/auth/verify-email/${token}`,
   );
-  res.send({ success: true, message: "Verification Link Sent" });
+  res.send(toAuthResponseDTO("Verification Link Sent"));
 }, "Send verification Link");
 
 export const verifyEmail = tryCatch(async (req, res, next) => {
@@ -216,7 +211,7 @@ export const verifyEmail = tryCatch(async (req, res, next) => {
   const userObj = user.toJSON();
   notifyClient(user._id.toString(), "verified", {
     success: true,
-    user: { ...userObj, accessToken },
+    user: { ...toUserDTO(userObj), accessToken },
   });
   if (isNewDevice) {
     res.cookie("deviceId", deviceId, deviceIdCookieOptions);
@@ -233,13 +228,13 @@ export const forgotPassword = tryCatch(async (req, res, next) => {
   }
   const token = await generateAndStorePasswordResetToken(email);
   if (!token) {
-    return res.send({ success: true, message: "Email sent successfully." });
+    return res.send(toAuthResponseDTO("Email sent successfully."));
   }
   await sendpasswordResetMail(
     email,
     process.env.APP_URL + `auth/change-password/${token}`,
   );
-  res.send({ success: true, message: "Email sent successfully." });
+  res.send(toAuthResponseDTO("Email sent successfully."));
 }, "forgot Password");
 
 export const changePassword = tryCatch(async (req, res, next) => {
@@ -255,7 +250,7 @@ export const changePassword = tryCatch(async (req, res, next) => {
   }
   await removePasswordResetToken(user);
   await updatePassword(user, password);
-  res.send({ success: true, message: "password updated successfully." });
+  res.send(toAuthResponseDTO("password updated successfully."));
 }, "Change Password");
 
 export const verificationStatus = tryCatch(async (req, res, next) => {

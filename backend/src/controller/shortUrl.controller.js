@@ -1,5 +1,5 @@
-import { deleteShortUrlDao, findShortUrl, findShortUrlbySlug } from "../dao/shortUrl.js";
-import { cacheUrl, deleteCachedUrl, getCachedUrl } from "../dao/url.redis.js";
+import { deleteShortUrlDao, findShortUrlbySlug } from "../dao/shortUrl.js";
+import { cacheUrl, deleteCachedUrl } from "../dao/url.redis.js";
 import urlSchema from "../schema/url.schema.js";
 import { UAParser } from "ua-parser-js";
 import {
@@ -21,6 +21,9 @@ import {
 import { recordClick } from "../utils/analytics.js";
 import { getCountry } from "../utils/geo.js";
 import crypto from "crypto";
+import { withCache } from "../utils/withCache.js";
+import { urlCacheKey, URL_CACHE_TTL } from "../utils/cacheKeys.js";
+import { toCreateShortUrlDTO, toDeleteShortUrlDTO } from "../dto/shortUrl.dto.js";
 export const createShortUrl = tryCatch(async (req, res, next) => {
   const { url } = req.body;
   const validated = urlSchema
@@ -41,11 +44,11 @@ export const createShortUrl = tryCatch(async (req, res, next) => {
     }
     const id = await createShortUrlWithUserService(url, req.user._id, slug);
     await addUrlToBloom(id);
-    res.status(200).json({ short_url: process.env.BASE_URL + id });
+    res.status(200).json(toCreateShortUrlDTO(process.env.BASE_URL, id));
   } else {
     const id = await createShortUrlwithoutUserService(url);
     await addUrlToBloom(id);
-    res.status(200).json({ short_url: process.env.BASE_URL + id });
+    res.status(200).json(toCreateShortUrlDTO(process.env.BASE_URL, id));
   }
 }, "Create Short url");
 
@@ -55,21 +58,31 @@ export const redirectFromShortUrl = tryCatch(async (req, res, next) => {
   if (Number(mightExists) === 0) {
     throw new NotFoundError("Short URL not found");
   }
-  const cached = await getCachedUrl(shortId);
-  let fullUrl = cached;
 
-  if (!cached) {
-    const shortUrl = await findShortUrlbySlug(shortId);
-    if (!shortUrl || !shortUrl.isActive) {
-      throw new NotFoundError("Short URL not found");
-    }
-    fullUrl = shortUrl.full_url;
-    cacheUrl(shortId, fullUrl);
+  const shortUrlData = await withCache(
+    urlCacheKey(shortId),
+    URL_CACHE_TTL,
+    async () => {
+      const shortUrl = await findShortUrlbySlug(shortId);
+      if (!shortUrl || !shortUrl.isActive) {
+        return null;
+      }
+      return {
+        id: shortUrl.short_url,
+        full_url: shortUrl.full_url,
+        isActive: shortUrl.isActive,
+      };
+    },
+  );
+
+  if (!shortUrlData) {
+    throw new NotFoundError("Short URL not found");
   }
-  if (!isValidRedirectUrl(fullUrl)) {
+
+  if (!isValidRedirectUrl(shortUrlData.full_url)) {
     throw new ValidationError("Invalid redirect URL");
   }
-  return res.send(buildRedirectPage(shortId, encodeURIComponent(fullUrl)));
+  return res.send(buildRedirectPage(shortId, encodeURIComponent(shortUrlData.full_url)));
 }, "Redirect from short url");
 
 export const deleteShortUrl = tryCatch(async (req, res, next) => {
@@ -81,7 +94,7 @@ export const deleteShortUrl = tryCatch(async (req, res, next) => {
     );
   }
   await deleteCachedUrl(id);
-  res.status(200).json({ message: "Short URL deleted successfully" });
+  res.status(200).json(toDeleteShortUrlDTO());
 }, "Delete short url");
 
 export const trackClick = tryCatch(async (req, res) => {

@@ -23,7 +23,6 @@ export default function EmailVerificationPage() {
   const email = auth.user?.email;
   const handleResend = async () => {
     setLoading(true);
-
     try {
       await sendVerificationMail(email);
 

@@ -1,6 +1,10 @@
 import redis from "../config/redis.config.js";
 import { findShortUrl } from "../dao/shortUrl.js";
 
+export const URL_CACHE_PREFIX = "cache:url:";
+export const URL_CACHE_TTL = 60 * 60 * 24; // 24 hours
+export const urlCacheKey = (shortCode) => `${URL_CACHE_PREFIX}${shortCode}`;
+
 export async function invalidateAnalyticsCache(urlId) {
   const exists = await redis.exists(`cache:analytics:url:${urlId}:30d:summary`);
   if (!exists) return; 

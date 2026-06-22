@@ -1,21 +1,22 @@
-
 import redis from '../config/redis.config.js'
-
-const PREFIX = "url:";
+import { urlCacheKey, URL_CACHE_TTL } from '../utils/cacheKeys.js'
 
 export const getCachedUrl = async (shortCode) => {
-  return redis.get(PREFIX + shortCode);
+  const cached = await redis.get(urlCacheKey(shortCode));
+  if (!cached) return null;
+  try {
+    return JSON.parse(cached);
+  } catch {
+    return null;
+  }
 };
 
-export const cacheUrl = async (shortCode, originalUrl) => {
-  await redis.set(
-    PREFIX + shortCode,
-    originalUrl,{
-        EX: 60 * 60 * 24,
-    }
-  );
+export const cacheUrl = async (shortCode, shortUrlObj) => {
+  await redis.set(urlCacheKey(shortCode), JSON.stringify(shortUrlObj), {
+    EX: URL_CACHE_TTL,
+  });
 };
 
-export const deleteCachedUrl = async(shortCode)=>{
-    await redis.del(PREFIX + shortCode)
+export const deleteCachedUrl = async (shortCode) => {
+  await redis.del(urlCacheKey(shortCode))
 }

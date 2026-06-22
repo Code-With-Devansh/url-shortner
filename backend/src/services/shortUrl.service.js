@@ -11,8 +11,8 @@ export const createShortUrlwithoutUserService = async(url) => {
     if(!id){
       throw new Error("Failed to generate short URL", 500); 
     }
-    cacheUrl(id, url)
-    await saveShortUrl(url,id);
+    await saveShortUrl(url, id);
+    await cacheUrl(id, { id, full_url: url, isActive: true });
     return id;
 };
 export const createShortUrlWithUserService = async (url, userId, slug = null) => {
@@ -21,8 +21,8 @@ export const createShortUrlWithUserService = async (url, userId, slug = null) =>
   if(exists){
     throw new conflictError("Custom short URL already exists");
   }
-  await cacheUrl(id, url)
   await saveShortUrl(url, id, userId);
+  await cacheUrl(id, { id, full_url: url, isActive: true });
   return id;
 };
 

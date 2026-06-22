@@ -24,7 +24,9 @@ const RegisterPage = ({ setLogin }) => {
         throw new Error(validationResult.error.issues[0].message);
       }
       const data = await registerUser(form.name, form.email, form.password);
-      dispatch(login(data));
+      console.log("#########")
+      console.log(data);
+      dispatch(login({user: data}));
       const verified = await sendVerificationMail(data.email);
       if(verified.success){
         navigate({

@@ -41,7 +41,7 @@ export default function DashboardPage() {
       setLoading(true);
       const newShortUrl = await createShortUrl(
         form.full_url,
-        auth.user._id,
+        auth.user.id,
         form.short_url,
       );
       if (newShortUrl) {
