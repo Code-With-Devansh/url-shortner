@@ -1,5 +1,5 @@
 import { flushAnalyticsKey } from "./jobs/flushAnalytics.js";
-import redis, { redisConnection } from "../config/redis.config.js";
+import redis from "../config/redis.config.js";
 import { mongoConnection } from "../config/mongo.config.js";
 import logger from "../logger/index.js";
 
@@ -12,7 +12,7 @@ const jobLogger = logger.child({
 const start = Date.now();
 
 try {
-  await Promise.all([redisConnection, mongoConnection]);
+  await mongoConnection;
 
   const keys = await redis.sMembers("analytics:active");
 

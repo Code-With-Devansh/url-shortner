@@ -1,6 +1,6 @@
 import "dotenv/config";
 import mongoose from "mongoose";
-import redis, { redisConnection } from "./src/config/redis.config.js";
+import redis from "./src/config/redis.config.js";
 import logger from "./src/logger/index.js";
 import { mongoConnection } from "./src/config/mongo.config.js";
 import { setShuttingDown } from "./state/shutdown.js";
@@ -42,7 +42,7 @@ async function gracefulShutdown(signal) {
 
 async function startServer() {
   try {
-    await Promise.all([redisConnection, mongoConnection]);
+    await mongoConnection;
     const { default: app } = await import("./app.js");
     const PORT = process.env.PORT || 5000;
 

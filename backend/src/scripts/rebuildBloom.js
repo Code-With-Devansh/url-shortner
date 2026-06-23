@@ -1,5 +1,4 @@
 import { mongoConnection } from "../config/mongo.config.js";
-import { redisConnection } from "../config/redis.config.js";
 import { reserveBloom } from "../dao/redirectBloom.redis.js";
 import { ShortUrlSchema } from "../models/shortUrl.model.js";
 import redis from "../config/redis.config.js";
@@ -29,7 +28,7 @@ export async function rebuildBloom() {
 }
 const start = Date.now();
 try {
-  await Promise.all([redisConnection, mongoConnection]);
+  await mongoConnection;
   await rebuildBloom();
   scriptLogger.info(
     { durationMs: Date.now() - start },

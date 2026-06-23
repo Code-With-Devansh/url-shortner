@@ -16,7 +16,7 @@ export async function withCache(key, ttlSeconds, fn) {
 
   // Fire-and-forget the cache write — don't make the response wait on it
   if (fresh !== undefined && fresh !== null) {
-    redis.set(key, JSON.stringify(fresh), { EX: ttlSeconds }).catch(() => {});
+    redis.set(key, JSON.stringify(fresh),  "EX", ttlSeconds ).catch(() => {});
   }
 
   return fresh;

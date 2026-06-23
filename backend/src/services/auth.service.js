@@ -8,6 +8,7 @@ import {
   saveVerificationToken,
 } from "../dao/user.dao.js";
 import { cacheRefreshToken, checkCachedRefreshToken, getCachedRefreshToken } from "../dao/user.redis.js";
+import { emailQueue } from "../queues/queues.js";
 import {
   conflictError,
   NotFoundError,
@@ -61,15 +62,10 @@ export const checkIfRefreshTokenExists = async(id, refreshToken, deviceId) => {
   }
 };
 
-export const generateAndStoreVerificationToken = async (email) => {
+export const generateAndStoreVerificationToken = async (user) => {
   const { token, hashedToken } = generateVerificationToken();
-  const user = await findUserByEmail(email);
-  if (!user) {
-    throw new NotFoundError("User not found");
-  }
   await saveVerificationToken(user, hashedToken);
   return token;
-
 };
 
 export const generateAndStorePasswordResetToken = async(email)=>{
@@ -80,4 +76,14 @@ export const generateAndStorePasswordResetToken = async(email)=>{
   }
   await savePasswordResetToken(user, hashedToken);
   return token;
+}
+
+export const queueEmailVerification = async(user)=>{
+  const token = await generateAndStoreVerificationToken(user);
+  await emailQueue.add("send-verification-link", {
+    to: user.email,
+    template: "verification-link",
+    name: user.name,
+    token:token
+  });
 }

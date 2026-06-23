@@ -25,6 +25,7 @@ import {
   generateAndStorePasswordResetToken,
   generateAndStoreVerificationToken,
   loginUser,
+  queueEmailVerification,
   registerUser,
 } from "../services/auth.service.js";
 import {
@@ -176,12 +177,8 @@ export const sendVerificationLink = tryCatch(async (req, res, next) => {
     return res.json(toAuthResponseDTO("Verification Link Sent"));
   if (user.isVerified)
     return res.json(toAuthResponseDTO("Verification Link Sent"));
-  const token = await generateAndStoreVerificationToken(email);
-  await sendEmailVerificationMail(
-    user.name,
-    email,
-    process.env.BASE_URL + `api/auth/verify-email/${token}`,
-  );
+  await queueEmailVerification(user)
+  
   res.send(toAuthResponseDTO("Verification Link Sent"));
 }, "Send verification Link");
 

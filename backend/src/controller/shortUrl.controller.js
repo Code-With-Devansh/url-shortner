@@ -18,12 +18,13 @@ import {
   addUrlToBloom,
   checkIfExistinBloom,
 } from "../dao/redirectBloom.redis.js";
-import { recordClick } from "../utils/analytics.js";
+// import { recordClick } from "../utils/analytics.js";
 import { getCountry } from "../utils/geo.js";
 import crypto from "crypto";
 import { withCache } from "../utils/withCache.js";
 import { urlCacheKey, URL_CACHE_TTL } from "../utils/cacheKeys.js";
 import { toCreateShortUrlDTO, toDeleteShortUrlDTO } from "../dto/shortUrl.dto.js";
+import { recordClick } from "../services/analytics.service.js";
 export const createShortUrl = tryCatch(async (req, res, next) => {
   const { url } = req.body;
   const validated = urlSchema
@@ -68,7 +69,7 @@ export const redirectFromShortUrl = tryCatch(async (req, res, next) => {
         return null;
       }
       return {
-        id: shortUrl.short_url,
+        id: shortUrl._id,
         full_url: shortUrl.full_url,
         isActive: shortUrl.isActive,
       };
@@ -82,6 +83,7 @@ export const redirectFromShortUrl = tryCatch(async (req, res, next) => {
   if (!isValidRedirectUrl(shortUrlData.full_url)) {
     throw new ValidationError("Invalid redirect URL");
   }
+  await recordClick(shortUrlData.id, 3, req)
   return res.send(buildRedirectPage(shortId, encodeURIComponent(shortUrlData.full_url)));
 }, "Redirect from short url");
 
@@ -97,24 +99,3 @@ export const deleteShortUrl = tryCatch(async (req, res, next) => {
   res.status(200).json(toDeleteShortUrlDTO());
 }, "Delete short url");
 
-export const trackClick = tryCatch(async (req, res) => {
-  const { shortId } = req.params;
-  const shortUrl = await findShortUrlbySlug(shortId);
-  const ua = new UAParser(req.headers["user-agent"]).getResult();
-  const ip = req.ip || req.headers["x-forwarded-for"]?.split(",")[0];
-  // const country = getCountry(ip);
-  const country = "IN";
-  let referer = "direct";
-  try {
-    if (req.headers.referer) {
-      referer = new URL(req.headers.referer).hostname;
-    }
-  } catch {}
-  const visitorHash = crypto
-    .createHash("sha256")
-    .update(`${ip}:${req.headers["user-agent"]}`)
-    .digest("hex");
-  // await incrementClicks(shortId);
-  await recordClick(shortUrl._id.toString(), ua, visitorHash, country, referer);
-  res.sendStatus(204);
-}, "Track click");

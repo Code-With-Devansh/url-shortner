@@ -14,17 +14,17 @@ export const saveClickToRedis = async (
   const hllKey = `analytics:${urlId}:${date}:visitors`;
   const pipeline = redis.multi();
 
-  pipeline.hIncrBy(key, "total", 1);
-  pipeline.hIncrBy(key, `country:${country}`, 1);
-  pipeline.hIncrBy(key, `device:${ ua.device.type || "Unknown"}`, 1);
-  pipeline.hIncrBy(key, `browser:${ua.browser.name || "Unknown" }`, 1);
-  pipeline.hIncrBy(key, `os:${ua.os.name || "Unknown"}`, 1);
-  pipeline.hIncrBy(key, `referer:${referer}`, 1);
-  pipeline.hIncrBy(key, `hour:${hour}`, 1);
+  pipeline.hincrby(key, "total", 1);
+  pipeline.hincrby(key, `country:${country}`, 1);
+  pipeline.hincrby(key, `device:${ ua.device.type || "Unknown"}`, 1);
+  pipeline.hincrby(key, `browser:${ua.browser.name || "Unknown" }`, 1);
+  pipeline.hincrby(key, `os:${ua.os.name || "Unknown"}`, 1);
+  pipeline.hincrby(key, `referer:${referer}`, 1);
+  pipeline.hincrby(key, `hour:${hour}`, 1);
   pipeline.expire(key, 172800, "NX");
-  pipeline.pfAdd(hllKey, visitorHash);
+  pipeline.pfadd(hllKey, visitorHash);
   pipeline.expire(hllKey, 172800, "NX");
-  pipeline.sAdd("analytics:active", key);
+  pipeline.sadd("analytics:active", key);
 
   await pipeline.exec();
 };

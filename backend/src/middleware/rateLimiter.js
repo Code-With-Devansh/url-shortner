@@ -6,7 +6,9 @@ const skipInDev = () => process.env.NODE_ENV === "development";
 const createStore = (prefix) =>
   new RedisStore({
     prefix,
-    sendCommand: (...args) => redis.sendCommand(args),
+    sendCommand: async (...args) => {
+      return redis.call(...args);
+    },
   });
 
 const commonConfig = {

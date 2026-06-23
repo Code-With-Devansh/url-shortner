@@ -1,7 +1,7 @@
 import IORedis from "ioredis";
 import logger from "../logger/index.js";
 
-const client = new IORedis({
+const bullmqClient = new IORedis({
   host: process.env.REDIS_HOST,
   port: Number(process.env.REDIS_PORT),
   password: process.env.REDIS_PASSWORD,
@@ -17,8 +17,8 @@ const client = new IORedis({
   maxRetriesPerRequest: null,
 });
 
-client.on('connect', () => logger.info('[redis] connected'));
-client.on('reconnecting', () => logger.warn('[redis] reconnecting...'));
-client.on('error', (err) => logger.error({ err }, '[redis] client error'));
+bullmqClient.on('connect', () => logger.info('[bullmqClient] connected'));
+bullmqClient.on('reconnecting', () => logger.warn('[bullmqClient] reconnecting...'));
+bullmqClient.on('error', (err) => logger.error({ err }, '[bullmqClient] client error'));
 
-export default client;
+export default bullmqClient;

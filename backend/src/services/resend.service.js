@@ -10,7 +10,6 @@ export const sendEmailVerificationMail = async (name, email, link) =>{
     subject: 'Email Verification',
     html: emailVerificationTemplate(name, email, link)
   });
-
   if (error) {
     throw new Error(error)
   }

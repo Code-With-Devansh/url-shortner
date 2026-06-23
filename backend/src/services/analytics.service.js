@@ -1,3 +1,4 @@
+import { clickQueue } from "../queues/queues.js";
 import {
   getBucketsByUrl,
   getBucketsByUrls,
@@ -101,6 +102,25 @@ const validateBreakdown = (by) => {
   }
   return by;
 };
+
+export async function recordClick(urlId, ttlDays, req) {
+  let referer = 'direct';
+  try {
+      if (req.headers.referer) {
+        referer = new URL(req.headers.referer).hostname;
+      }
+    } catch {}
+  await clickQueue.add("click", {
+    urlId,
+    ttlDays,
+    ip: req.headers["x-forwarded-for"]?.split(",")[0],
+    userAgent: req.headers["user-agent"],
+    referer,
+    timestamp: Date.now(),
+  });
+}
+
+
 
 // per url
 export const getUrlAnalyticsSummary = async (urlId, userId, range) => {

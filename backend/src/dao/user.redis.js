@@ -10,7 +10,8 @@ export const cacheRefreshToken = async (userId, refreshToken, deviceId) => {
   await redis.set(
     sessionKey(userId, deviceId),
     hashToken(refreshToken),
-    { EX: 60 * 60 * 24 * 20 }, // 20 days
+    "EX",
+    60 * 60 * 24 * 20  // 20 days
   );
 };
 
