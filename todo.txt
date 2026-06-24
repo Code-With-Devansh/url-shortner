@@ -1,7 +1,7 @@
 0. now also analytics worker is a cron ran at 3 am everyday. to save click bucket to db one call a day. to get the analytics of today. i want to not query the db instead get data from the redis. is my thinking going right. any possible tradeoffs? or failures during production ref: http://localhost:5000/cron
 
 0.1 retention is set to 90 days in helper/analytics.js. inspection remaining.
-0.2 When $text is present, MongoDB cannot use the compound { user, createdAt }. index simultaneously. For high-traffic apps consider Atlas Search instead.
+0.2 ## search not working.  When $text is present, MongoDB cannot use the compound { user, createdAt }. index simultaneously. For high-traffic apps consider Atlas Search instead.
 0.4 get country for analytics. device not setting up in analytics.
 0.5 thinking to compress the string stored in redis as url lookup. (should i?)
 1. google Oauth

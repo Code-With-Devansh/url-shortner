@@ -36,12 +36,11 @@ export const saveClickBucket = async (
 
 // All buckets for one URL, most recent first, within a date range
 export const getBucketsByUrl = async (urlId, since) => {
+  const today = new Date().toISOString().split("T")[0];
   return ClickBucket.find(
-    { url_id: urlId, date: { $gte: since } },
+    { url_id: urlId, date: { $gte: since, $lt: today } }, 
     "-_id -__v",
-  )
-    .sort({ date: 1 })
-    .lean();
+  ).sort({ date: 1 }).lean();
 };
 
 // All buckets for many URLs (used for the "overall" views) within a date range

@@ -4,7 +4,8 @@
   "description": "",
   "main": "app.js",
   "scripts": {
-    "dev": "nodemon server.js",
+    "dev": "concurrently \"npm run server\" \"npm run worker:click\" \"npm run worker:email\"",
+    "server": "nodemon server.js",
     "worker:click": "node --env-file=.env src/workers/clickWorker.js",
     "worker:email": "node --env-file=.env src/workers/emailWorker.js",
     "cron:flush": "node --env-file=.env src/cron/flushClicks.js",

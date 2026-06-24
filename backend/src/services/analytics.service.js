@@ -12,7 +12,7 @@ import { analyticsCacheKey } from "../utils/cacheKeys.js";
 import { withCache } from "../utils/withCache.js";
 
 const TTL = {
-  summary: 120,
+  summary: 30,
   timeseries: 300,
   breakdown: 300,
   leaderboard: 300,
@@ -104,12 +104,12 @@ const validateBreakdown = (by) => {
 };
 
 export async function recordClick(urlId, ttlDays, req) {
-  let referer = 'direct';
+  let referer = "direct";
   try {
-      if (req.headers.referer) {
-        referer = new URL(req.headers.referer).hostname;
-      }
-    } catch {}
+    if (req.headers.referer) {
+      referer = new URL(req.headers.referer).hostname;
+    }
+  } catch {}
   await clickQueue.add("click", {
     urlId,
     ttlDays,
@@ -119,19 +119,67 @@ export async function recordClick(urlId, ttlDays, req) {
     timestamp: Date.now(),
   });
 }
+// reads bucket from redis for today only, returns null if no clicks yet today
+import redis from "../config/redis.config.js";
 
+async function getTodayBucketFromRedis(urlId) {
+  const date = new Date().toISOString().split("T")[0];
+  const key = `analytics:${urlId}:${date}`;
+  const hllKey = `analytics:${urlId}:${date}:visitors`;
 
+  const data = await redis.hgetall(key);
+  if (!data || Object.keys(data).length === 0) {
+    return null;
+  }
+
+  const countries = {};
+  const devices = {};
+  const browsers = {};
+  const os = {};
+  const referers = {};
+  const hours = {};
+  let total = 0;
+
+  for (const [field, value] of Object.entries(data)) {
+    const count = Number(value);
+    if (field === "total") total = count;
+    else if (field.startsWith("country:")) countries[field.slice(8)] = count;
+    else if (field.startsWith("device:")) devices[field.slice(7)] = count;
+    else if (field.startsWith("browser:")) browsers[field.slice(8)] = count;
+    else if (field.startsWith("os:")) os[field.slice(3)] = count;
+    else if (field.startsWith("referer:")) referers[field.slice(8)] = count;
+    else if (field.startsWith("hour:")) hours[field.slice(5)] = count;
+  }
+
+  const uniqueVisitors = await redis.pfcount(hllKey);
+  return {
+    date,
+    total,
+    uniqueVisitors,
+    countries,
+    devices,
+    browsers,
+    os,
+    referers,
+    hours,
+  };
+}
 
 // per url
 export const getUrlAnalyticsSummary = async (urlId, userId, range) => {
   const url = await findShortUrlByIdForUser(urlId, userId);
   if (!url) throw new NotFoundError("Short URL not found");
+
   const rangeKey = validateRange(range);
   const key = analyticsCacheKey("url", urlId, rangeKey, "summary");
+
   return withCache(key, TTL.summary, async () => {
     const since = sinceDate(rangeKey);
-    const buckets = await getBucketsByUrl(urlId, since);
-    const { summary } = mergeBuckets(buckets);
+    const mongoBuckets = await getBucketsByUrl(urlId, since);
+    const todayBucket = await getTodayBucketFromRedis(urlId);
+    const allBuckets = todayBucket ? [...mongoBuckets, todayBucket] : mongoBuckets;
+
+    const { summary } = mergeBuckets(allBuckets);
 
     return {
       urlId,
@@ -165,7 +213,12 @@ export const getUrlAnalyticsBreakdown = async (urlId, userId, range, by) => {
 
   const rangeKey = validateRange(range);
   const dimension = validateBreakdown(by);
-  const key = analyticsCacheKey("url", urlId, rangeKey, `breakdown:${dimension}`);
+  const key = analyticsCacheKey(
+    "url",
+    urlId,
+    rangeKey,
+    `breakdown:${dimension}`,
+  );
   return withCache(key, TTL.breakdown, async () => {
     const since = sinceDate(rangeKey);
     const buckets = await getBucketsByUrl(urlId, since);
@@ -235,7 +288,12 @@ export const getOverallAnalyticsTimeseries = async (userId, range) => {
 export const getOverallAnalyticsBreakdown = async (userId, range, by) => {
   const rangeKey = validateRange(range);
   const dimension = validateBreakdown(by);
-  const key = analyticsCacheKey("user", userId, rangeKey, `breakdown:${dimension}`);
+  const key = analyticsCacheKey(
+    "user",
+    userId,
+    rangeKey,
+    `breakdown:${dimension}`,
+  );
   return withCache(key, TTL.breakdown, async () => {
     const urlIds = await getUserUrlIds(userId);
     if (urlIds.length === 0) return [];
@@ -255,7 +313,12 @@ export const getOverallAnalyticsLeaderboard = async (
 ) => {
   const rangeKey = validateRange(range);
   const cappedLimit = Math.min(limit, 50);
-  const key = analyticsCacheKey("user", userId, rangeKey, `leaderboard:${cappedLimit}`);
+  const key = analyticsCacheKey(
+    "user",
+    userId,
+    rangeKey,
+    `leaderboard:${cappedLimit}`,
+  );
   return withCache(key, TTL.leaderboard, async () => {
     const urlIds = await getUserUrlIds(userId);
     if (urlIds.length === 0) return [];

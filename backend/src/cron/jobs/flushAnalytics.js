@@ -4,10 +4,10 @@ import { invalidateAnalyticsCache } from "../../utils/cacheKeys.js";
 const RETENTION_DAYS = 90;
 
 export async function flushAnalyticsKey(key) {
-  const data = await redis.hGetAll(key);
+  const data = await redis.hgetall(key);
 
   if (!data || Object.keys(data).length === 0) {
-    await redis.sRem("analytics:active", key); // clean up the set too
+    await redis.srem("analytics:active", key); // clean up the set too
     return;
   }
   const [, urlId, date] = key.split(":");
@@ -32,7 +32,7 @@ export async function flushAnalyticsKey(key) {
   }
 
   const hllKey = `analytics:${urlId}:${date}:visitors`;
-  const uniqueVisitors = await redis.pfCount(hllKey);
+  const uniqueVisitors = await redis.pfcount(hllKey);
   const expireAt = new Date(Date.now() + RETENTION_DAYS * 86400000);
 
   await saveClickBucket(
@@ -49,8 +49,8 @@ export async function flushAnalyticsKey(key) {
     expireAt,
   );
 
-  await redis.del([key, hllKey]);
-  await redis.sRem("analytics:active", key);
+  await redis.del(key, hllKey);
+  await redis.srem("analytics:active", key);
 
   await invalidateAnalyticsCache(urlId);
 }
