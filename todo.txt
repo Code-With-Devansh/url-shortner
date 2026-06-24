@@ -1,3 +1,8 @@
+#### leave everything just fix the current app. the click and analytics is somewhat broken.
+
+
+
+
 0. now also analytics worker is a cron ran at 3 am everyday. to save click bucket to db one call a day. to get the analytics of today. i want to not query the db instead get data from the redis. is my thinking going right. any possible tradeoffs? or failures during production ref: http://localhost:5000/cron
 
 0.1 retention is set to 90 days in helper/analytics.js. inspection remaining.
