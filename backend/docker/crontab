@@ -1,0 +1,10 @@
+# Snip backend cron schedule
+# Note: cron:flush is intentionally omitted - the script it points to
+# (src/cron/flushClicks.js) does not exist in the codebase; analyticsWorker.js
+# is the job that actually flushes the Redis analytics buffer into MongoDB.
+
+# Flush the Redis analytics write-buffer into MongoDB ClickBuckets every 5 minutes
+0 3 * * * cd /usr/src/app && node src/cron/analyticsWorker.js >> /proc/1/fd/1 2>> /proc/1/fd/2
+
+
+# trailing newline required by cron
