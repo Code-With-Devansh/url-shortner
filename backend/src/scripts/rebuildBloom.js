@@ -13,19 +13,24 @@ const scriptLogger = logger.child({
 
 export async function rebuildBloom() {
   await reserveBloom();
+
   const cursor = ShortUrlSchema.find({}, "short_url").cursor();
   let batch = [];
+
   for await (const url of cursor) {
     batch.push(url.short_url);
+
     if (batch.length === 1000) {
-      await redis.sendCommand(["BF.MADD", "urls:bloom", ...batch]);
+      await redis.call("BF.MADD", "urls:bloom", ...batch);
       batch = [];
     }
   }
+
   if (batch.length > 0) {
-    await redis.sendCommand(["BF.MADD", "urls:bloom", ...batch]);
-  }
+  await redis.call("BF.MADD", "urls:bloom", ...batch);
 }
+}
+
 const start = Date.now();
 try {
   await mongoConnection;
