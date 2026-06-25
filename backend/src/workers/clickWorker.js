@@ -9,9 +9,7 @@ const worker = new Worker(
     await processClick(job.data);
     logger.debug({ jobId: job.id }, "Analytics job completed");
   },
-  { connection: redis, concurrency: 10, removeOnComplete: true, removeOnFail: {
-    age: 24 * 3600, 
-  } },
+  { connection: redis, concurrency: 10}
 );
 
 worker.on("failed", (job, err) => {
