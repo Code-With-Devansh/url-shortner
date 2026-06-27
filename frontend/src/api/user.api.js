@@ -3,17 +3,17 @@ import axiosInstance, { setAccessToken } from "../utils/axiosInstance";
 export const loginUser = async(email, password) => {
     const {data} = await axiosInstance.post('/api/auth/login', {email, password});
     setAccessToken(data.data.accessToken);
-    return data.data;
+    return data.data.user;
 }
 
 export const registerUser = async(name, email, password) => {
     const {data} = await axiosInstance.post('/api/auth/register', {name, email, password});
-    return data.data;
+    return data.data.user;
 } 
 
 export const logoutUser = async() => {
-    const {data} = await axiosInstance.get('/api/auth/logout');
-    return data.data;
+    const {data} = await axiosInstance.post('/api/auth/logout');
+    return data.success;
 }
 
 export const getCurrentUser = async() => {
@@ -60,5 +60,6 @@ export const changePassword = async (token, password) =>{
 
 export const refreshAccessToken = async()=>{
     const {data} = await axiosInstance.post("/api/auth/refresh");
-    return data;
+    console.log("refreshAccessToken", data);
+    return data.accessToken;
 }

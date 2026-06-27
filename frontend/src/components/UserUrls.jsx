@@ -196,7 +196,7 @@ const UserUrls = () => {
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   const handleCopy = useCallback((slug) => {
-    navigator.clipboard.writeText(`${BASE}${slug}`);
+    navigator.clipboard.writeText(`${slug}`);
     setCopied(slug);
     setTimeout(() => setCopied(null), 2000);
   }, []);

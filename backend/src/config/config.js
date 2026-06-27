@@ -1,14 +1,15 @@
+const isProd = process.env.NODE_ENV === "production";
 
 export const refreshTokenCookieOptions = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
-  sameSite: "none",
-  maxAge: 1000 * 60 * 60 * 24 * 20, // 20d
+  secure: isProd,
+  sameSite: isProd ? "none" : "lax",
+  maxAge: 1000 * 60 * 60 * 24 * 20,
 };
 
 export const deviceIdCookieOptions = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
-  sameSite: "none",
-  maxAge: 1000 * 60 * 60 * 24 * 365, // 1 year
+  secure: isProd,
+  sameSite: isProd ? "none" : "lax",
+  maxAge: 1000 * 60 * 60 * 24 * 365,
 };

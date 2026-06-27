@@ -101,10 +101,10 @@ axiosInstance.interceptors.response.use(
                     { withCredentials: true }
                 );
 
-                setAccessToken(data.accessToken);
-                processQueue(null, data.accessToken);
+                setAccessToken(data.data.accessToken);
+                processQueue(null, data.data.accessToken);
 
-                originalRequest.headers.Authorization = `Bearer ${data.accessToken}`;
+                originalRequest.headers.Authorization = `Bearer ${data.data.accessToken}`;
                 return axiosInstance(originalRequest);
             } catch (refreshError) {
                 processQueue(refreshError, null);
