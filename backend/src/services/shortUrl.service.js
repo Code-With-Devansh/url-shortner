@@ -1,4 +1,9 @@
-import { findShortUrl, findShortUrlbySlug, queryShortUrls, saveShortUrl } from "../dao/shortUrl.js";
+import {
+  findShortUrl,
+  findShortUrlbySlug,
+  queryShortUrls,
+  saveShortUrl,
+} from "../dao/shortUrl.js";
 import { ShortUrlSchema } from "../models/shortUrl.model.js";
 import { generateShortUrl } from "../utils/helper.js";
 import { AppError, conflictError } from "../utils/appError.js";
@@ -6,30 +11,44 @@ import { cacheUrl } from "../dao/url.redis.js";
 import { encodeCursor } from "../schema/urlQuery.validator.js";
 import { ErrorCodes } from "../utils/errorCodes.js";
 
-
-export const createShortUrlwithoutUserService = async(url) => {
-    const id = generateShortUrl(7);
-    if(!id){
-      throw new Error("Failed to generate short URL", 500); 
-    }
-    await saveShortUrl(url, id);
-    await cacheUrl(id, { id, full_url: url, isActive: true });
-    return id;
-};
-export const createShortUrlWithUserService = async (url, userId, slug = null) => {
-  const id = (slug && slug.length>0) ? slug : generateShortUrl(7);
-  const exists = await findShortUrlbySlug(id);
-  if(exists){
-    throw new conflictError("Custom short URL already exists", ErrorCodes.URL_SLUG_TAKEN);
+export const createShortUrlwithoutUserService = async (url) => {
+  const id = generateShortUrl(7);
+  if (!id) {
+    throw new Error("Failed to generate short URL", 500);
   }
-  await saveShortUrl(url, id, userId);
-  await cacheUrl(id, { id, full_url: url, isActive: true });
+  const shortUrl = await saveShortUrl(url, id);
+  await cacheUrl(id, { id: shortUrl._id, full_url: url, isActive: true });
+  return id;
+};
+export const createShortUrlWithUserService = async (
+  url,
+  userId,
+  slug = null,
+) => {
+  const id = slug && slug.length > 0 ? slug : generateShortUrl(7);
+  const exists = await findShortUrlbySlug(id);
+  if (exists) {
+    throw new conflictError(
+      "Custom short URL already exists",
+      ErrorCodes.URL_SLUG_TAKEN,
+    );
+  }
+  const shortUrl = await saveShortUrl(url, id, userId);
+  await cacheUrl(id, { id: shortUrl._id, full_url: url, isActive: true });
   return id;
 };
 
-const buildFilter = ({ userId, search, isActive, expiryFilter, cursor, sortBy, order }) => {
+const buildFilter = ({
+  userId,
+  search,
+  isActive,
+  expiryFilter,
+  cursor,
+  sortBy,
+  order,
+}) => {
   const filter = { user: userId };
- 
+
   // ── isActive ──
   if (isActive !== undefined) {
     filter.isActive = isActive;
@@ -40,7 +59,7 @@ const buildFilter = ({ userId, search, isActive, expiryFilter, cursor, sortBy, o
   if (search) {
     filter.$text = { $search: search };
   }
- 
+
   // ── cursor (keyset pagination) ──
   // We fetch `limit + 1` docs and use the extra to determine `hasMore`.
   // The cursor encodes the last doc's { id, value } so we can do:
@@ -51,7 +70,7 @@ const buildFilter = ({ userId, search, isActive, expiryFilter, cursor, sortBy, o
   // pagination even when multiple docs share the same sortBy value.
   if (cursor) {
     const gtOrLt = order === "desc" ? "$lt" : "$gt";
- 
+
     if (sortBy === "createdAt") {
       // createdAt is colocated with _id order, so a simple _id cursor is enough
       filter._id = { [gtOrLt]: cursor.id };
@@ -65,46 +84,52 @@ const buildFilter = ({ userId, search, isActive, expiryFilter, cursor, sortBy, o
       ];
     }
   }
- 
+
   return filter;
 };
- 
-
 
 const buildSort = ({ sortBy, order, search }) => {
   const dir = order === "desc" ? -1 : 1;
- 
+
   // When $text search is active, include textScore so most-relevant results
   // surface first. sortBy is still applied as secondary sort.
   if (search) {
     return { score: { $meta: "textScore" }, [sortBy]: dir, _id: dir };
   }
- 
+
   // Always include _id as a tiebreaker — required for stable cursor pagination
   return { [sortBy]: dir, _id: dir };
 };
- 
 
 export const getUserUrls = async (userId, params) => {
-  const { limit, sortBy, order, cursor, search, isActive, expiryFilter } = params;
- 
-  const filter = buildFilter({ userId, search, isActive, expiryFilter, cursor, sortBy, order });
+  const { limit, sortBy, order, cursor, search, isActive, expiryFilter } =
+    params;
+
+  const filter = buildFilter({
+    userId,
+    search,
+    isActive,
+    expiryFilter,
+    cursor,
+    sortBy,
+    order,
+  });
   const sort = buildSort({ sortBy, order, search });
-  let query = {filter, sort, limit: limit+1}
- 
+  let query = { filter, sort, limit: limit + 1 };
+
   const docs = await queryShortUrls(query, search);
- 
+
   const hasMore = docs.length > limit;
   const urls = hasMore ? docs.slice(0, limit) : docs;
- 
+
   let nextCursor = null;
   if (hasMore) {
     const last = urls[urls.length - 1];
     nextCursor = encodeCursor({
       id: last._id.toString(),
-      value: last[sortBy], 
+      value: last[sortBy],
     });
   }
- 
+
   return { urls, hasMore, nextCursor };
 };

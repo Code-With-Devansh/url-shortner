@@ -8,6 +8,7 @@
     "server": "node server.js",
     "worker:click": "node --env-file=.env src/workers/clickWorker.js",
     "worker:email": "node --env-file=.env src/workers/emailWorker.js",
+    "cron:flushClicks": "node --env-file=.env.local src/cron/flushClicksWorker.js",
     "cron:analyticsWorker": "node --env-file=.env src/cron/analyticsWorker.js",
     "script:rebuildBloom": "node --env-file=.env src/scripts/rebuildBloom.js",
     "test": "echo \"Error: no test specified\" && exit 1",

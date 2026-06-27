@@ -1,5 +1,6 @@
 import { ShortUrlSchema } from "../models/shortUrl.model.js";
 import { conflictError } from "../utils/appError.js";
+import { ErrorCodes } from "../utils/errorCodes.js";
 
 export const saveShortUrl = async (url, id, userId) => {
   try {
@@ -10,10 +11,10 @@ export const saveShortUrl = async (url, id, userId) => {
     if (userId) {
       newShortUrl.user = userId;
     }
-    await newShortUrl.save();
+    return await newShortUrl.save();
   } catch (err) {
     if (err.code === 11000) {
-      throw new conflictError("duplicate Short Url");
+      throw new conflictError("duplicate Short Url", ErrorCodes.URL_SLUG_TAKEN);
     } else {
       throw err;
     }

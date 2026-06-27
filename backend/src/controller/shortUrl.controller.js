@@ -13,7 +13,6 @@ import {
 } from "../utils/helper.js";
 import { buildRedirectPage } from "../utils/redirectPage.js";
 import tryCatch from "../utils/tryCatch.js";
-import { incrementClicks } from "../dao/clicks.redis.js";
 import {
   addUrlToBloom,
   checkIfExistinBloom,
