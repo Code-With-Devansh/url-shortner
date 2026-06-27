@@ -7,5 +7,5 @@
 0 3 * * * cd /usr/src/app && node src/cron/analyticsWorker.js >> /proc/1/fd/1 2>> /proc/1/fd/2
 
 # Flush the Redis analytics write-buffer into MongoDB ClickBuckets every 1 minutes
-*/1 * * * * cd /usr/src/app && node src/cron/analyticsWorker.js >> /proc/1/fd/1 2>> /proc/1/fd/2
+*/1 * * * * cd /usr/src/app && node src/cron/flushClicksWorker.js >> /proc/1/fd/1 2>> /proc/1/fd/2
 # trailing newline required by cron
