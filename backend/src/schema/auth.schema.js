@@ -15,7 +15,7 @@ export const UserSchema = z.object({
   password: z
     .string()
     .min(6, { message: "Password must be at least 6 characters" })
-    .max(16, { message: "Password cannot exceed 16 characters" }),
+    .max(128, { message: "Password cannot exceed 128 characters" }),
 });
 
 export default UserSchema;

@@ -88,7 +88,8 @@ const topN = (obj, n = 10) =>
 const validateRange = (range) => {
   if (range && !(range in ALLOWED_RANGES)) {
     throw new ValidationError(
-      `range must be one of: ${Object.keys(ALLOWED_RANGES).join(", ")}`,
+      { range: `range must be one of: ${Object.keys(ALLOWED_RANGES).join(", ")}` },
+      ErrorCodes.ANALYTICS_INVALID_RANGE,
     );
   }
   return range || "30d";
@@ -97,7 +98,8 @@ const validateRange = (range) => {
 const validateBreakdown = (by) => {
   if (!ALLOWED_BREAKDOWNS.includes(by)) {
     throw new ValidationError(
-      `by must be one of: ${ALLOWED_BREAKDOWNS.join(", ")}`,
+      { by: `by must be one of: ${ALLOWED_BREAKDOWNS.join(", ")}` },
+      ErrorCodes.ANALYTICS_INVALID_BREAKDOWN,
     );
   }
   return by;
@@ -121,6 +123,7 @@ export async function recordClick(urlId, ttlDays, req) {
 }
 // reads bucket from redis for today only, returns null if no clicks yet today
 import redis from "../config/redis.config.js";
+import { ErrorCodes } from "../utils/errorCodes.js";
 
 async function getTodayBucketFromRedis(urlId) {
   const date = new Date().toISOString().split("T")[0];
@@ -168,7 +171,7 @@ async function getTodayBucketFromRedis(urlId) {
 // per url
 export const getUrlAnalyticsSummary = async (urlId, userId, range) => {
   const url = await findShortUrlByIdForUser(urlId, userId);
-  if (!url) throw new NotFoundError("Short URL not found");
+  if (!url) throw new NotFoundError("Short URL not found", ErrorCodes.URL_NOT_FOUND);
 
   const rangeKey = validateRange(range);
   const key = analyticsCacheKey("url", urlId, rangeKey, "summary");
@@ -194,7 +197,7 @@ export const getUrlAnalyticsSummary = async (urlId, userId, range) => {
 
 export const getUrlAnalyticsTimeseries = async (urlId, userId, range) => {
   const url = await findShortUrlByIdForUser(urlId, userId);
-  if (!url) throw new NotFoundError("Short URL not found");
+  if (!url) throw new NotFoundError("Short URL not found", ErrorCodes.URL_NOT_FOUND);
 
   const rangeKey = validateRange(range);
   const key = analyticsCacheKey("url", urlId, rangeKey, "timeseries");
@@ -209,7 +212,7 @@ export const getUrlAnalyticsTimeseries = async (urlId, userId, range) => {
 
 export const getUrlAnalyticsBreakdown = async (urlId, userId, range, by) => {
   const url = await findShortUrlByIdForUser(urlId, userId);
-  if (!url) throw new NotFoundError("Short URL not found");
+  if (!url) throw new  NotFoundError("Short URL not found", ErrorCodes.URL_NOT_FOUND);
 
   const rangeKey = validateRange(range);
   const dimension = validateBreakdown(by);

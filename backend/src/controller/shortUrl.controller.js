@@ -18,13 +18,13 @@ import {
   addUrlToBloom,
   checkIfExistinBloom,
 } from "../dao/redirectBloom.redis.js";
-// import { recordClick } from "../utils/analytics.js";
 import { getCountry } from "../utils/geo.js";
 import crypto from "crypto";
 import { withCache } from "../utils/withCache.js";
 import { urlCacheKey, URL_CACHE_TTL } from "../utils/cacheKeys.js";
 import { toCreateShortUrlDTO, toDeleteShortUrlDTO } from "../dto/shortUrl.dto.js";
 import { recordClick } from "../services/analytics.service.js";
+import { ErrorCodes } from "../utils/errorCodes.js";
 export const createShortUrl = tryCatch(async (req, res, next) => {
   const { url } = req.body;
   const validated = urlSchema
@@ -45,11 +45,11 @@ export const createShortUrl = tryCatch(async (req, res, next) => {
     }
     const id = await createShortUrlWithUserService(url, req.user._id, slug);
     await addUrlToBloom(id);
-    res.status(200).json(toCreateShortUrlDTO(process.env.BASE_URL, id));
+    res.status(200).json(toCreateShortUrlDTO(process.env.BASE_URL, id, url));
   } else {
     const id = await createShortUrlwithoutUserService(url);
     await addUrlToBloom(id);
-    res.status(200).json(toCreateShortUrlDTO(process.env.BASE_URL, id));
+    res.status(200).json(toCreateShortUrlDTO(process.env.BASE_URL, id, url));
   }
 }, "Create Short url");
 
@@ -57,7 +57,7 @@ export const redirectFromShortUrl = tryCatch(async (req, res, next) => {
   const { shortId } = req.params;
   const mightExists = await checkIfExistinBloom(shortId);
   if (Number(mightExists) === 0) {
-    throw new NotFoundError("Short URL not found");
+     throw new NotFoundError("Short URL not found", ErrorCodes.URL_NOT_FOUND);
   }
 
   const shortUrlData = await withCache(
@@ -77,11 +77,11 @@ export const redirectFromShortUrl = tryCatch(async (req, res, next) => {
   );
 
   if (!shortUrlData) {
-    throw new NotFoundError("Short URL not found");
+    throw new NotFoundError("Short URL not found", ErrorCodes.URL_NOT_FOUND);
   }
 
   if (!isValidRedirectUrl(shortUrlData.full_url)) {
-    throw new ValidationError("Invalid redirect URL");
+    throw new ValidationError({ full_url: "Invalid redirect URL" }, ErrorCodes.URL_INVALID_TARGET);
   }
   await recordClick(shortUrlData.id, 3, req)
   return res.send(buildRedirectPage(shortId, encodeURIComponent(shortUrlData.full_url)));
@@ -91,8 +91,9 @@ export const deleteShortUrl = tryCatch(async (req, res, next) => {
   const { id } = req.params;
   const shortUrl = await deleteShortUrlDao(id, req.user._id);
   if (!shortUrl) {
-    throw new NotFoundError(
+     throw new NotFoundError(
       "Short URL not found or you don't have permission to delete it",
+      ErrorCodes.URL_NOT_FOUND_OR_FORBIDDEN,
     );
   }
   await deleteCachedUrl(id);

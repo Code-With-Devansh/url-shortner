@@ -10,7 +10,7 @@ export const toUserDTO = (user) => ({
 export const toLoginResponseDTO = (user, accessToken) => ({
   success: true,
   data: {
-    ...toUserDTO(user),
+    user: { ...toUserDTO(user) },
     accessToken,
   },
   message: "User logged in successfully",
@@ -18,7 +18,7 @@ export const toLoginResponseDTO = (user, accessToken) => ({
 
 export const toRegisterResponseDTO = (user) => ({
   success: true,
-  data: toUserDTO(user),
+  data: { user: toUserDTO(user) },
   message: "User registered successfully",
 });
 

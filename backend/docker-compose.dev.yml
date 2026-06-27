@@ -1,0 +1,87 @@
+services:
+  redis:
+    image: redis/redis-stack-server:latest
+    environment:
+      - REDIS_ARGS=--requirepass ${REDIS_PASSWORD}
+    ports:
+      # exposed to the host in dev so you can poke at it directly with
+      # redis-cli / RedisInsight if you want to - not done in prod compose.
+      - "6379:6379"
+    volumes:
+      - redis_dev_data:/data
+    networks:
+      - internal
+
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    env_file: .env
+    environment:
+      - SERVICE_NAME=api
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - NODE_ENV=development
+    ports:
+      - "5000:5000"
+    volumes:
+      # bind-mount your source into the container so edits on disk are
+      # seen immediately - this is the actual mechanism that makes
+      # "automatic restart on code change" possible at all.
+      - .:/usr/src/app
+      # anonymous volume over node_modules: this stops the bind mount
+      # above from overwriting the container's own node_modules (built
+      # for linux/the container's libc) with whatever's in your local
+      # node_modules (built for your host OS) - without this line,
+      # argon2's native binding will be the wrong one for the container
+      # and crash on import.
+      - /usr/src/app/node_modules
+    depends_on:
+      - redis
+    networks:
+      - internal
+
+  worker-click:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    command: ["npx", "nodemon", "--legacy-watch", "src/workers/clickWorker.js"]
+    env_file: .env
+    environment:
+      - SERVICE_NAME=worker-click
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - NODE_ENV=development
+    volumes:
+      - .:/usr/src/app
+      - /usr/src/app/node_modules
+    depends_on:
+      - redis
+    networks:
+      - internal
+
+  worker-email:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    command: ["npx", "nodemon", "--legacy-watch", "src/workers/emailWorker.js"]
+    env_file: .env
+    environment:
+      - SERVICE_NAME=worker-email
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - NODE_ENV=development
+    volumes:
+      - .:/usr/src/app
+      - /usr/src/app/node_modules
+    depends_on:
+      - redis
+    networks:
+      - internal
+
+networks:
+  internal:
+    driver: bridge
+
+volumes:
+  redis_dev_data:

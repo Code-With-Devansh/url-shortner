@@ -4,6 +4,7 @@ import { generateShortUrl } from "../utils/helper.js";
 import { AppError, conflictError } from "../utils/appError.js";
 import { cacheUrl } from "../dao/url.redis.js";
 import { encodeCursor } from "../schema/urlQuery.validator.js";
+import { ErrorCodes } from "../utils/errorCodes.js";
 
 
 export const createShortUrlwithoutUserService = async(url) => {
@@ -19,7 +20,7 @@ export const createShortUrlWithUserService = async (url, userId, slug = null) =>
   const id = (slug && slug.length>0) ? slug : generateShortUrl(7);
   const exists = await findShortUrlbySlug(id);
   if(exists){
-    throw new conflictError("Custom short URL already exists");
+    throw new conflictError("Custom short URL already exists", ErrorCodes.URL_SLUG_TAKEN);
   }
   await saveShortUrl(url, id, userId);
   await cacheUrl(id, { id, full_url: url, isActive: true });

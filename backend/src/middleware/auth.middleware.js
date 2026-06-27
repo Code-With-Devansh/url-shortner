@@ -1,6 +1,7 @@
 
 import { checkIfRefreshTokenExists } from "../services/auth.service.js";
 import { UnauthorizedError } from "../utils/appError.js";
+import { ErrorCodes } from "../utils/errorCodes.js";
 import {
   generateAccessToken,
   getUserByAccessToken,
@@ -11,7 +12,7 @@ export const authMiddleware = async (req, res, next) => {
   const accessToken = authHeader?.split(" ")[1];
 
   if (!accessToken) {
-    return next(new UnauthorizedError("User Not found"));
+    return next(new UnauthorizedError("No access token provided", ErrorCodes.AUTH_UNAUTHENTICATED));
   }
   try {
     const user = await getUserByAccessToken(accessToken);
@@ -19,7 +20,7 @@ export const authMiddleware = async (req, res, next) => {
       req.user = { ...user, accessToken };
       return next();
     }else{
-      throw new UnauthorizedError("User not found");
+      throw new UnauthorizedError("Invalid or expired access token", ErrorCodes.AUTH_UNAUTHENTICATED);
     }
   } catch (err) {
     next(err);

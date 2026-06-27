@@ -14,6 +14,7 @@ import {
   NotFoundError,
   UnauthorizedError,
 } from "../utils/appError.js";
+import { ErrorCodes } from "../utils/errorCodes.js";
 import {
   generateAccessToken,
   generateRefreshToken,
@@ -23,7 +24,7 @@ import {
 export const registerUser = async (name, email, password) => {
   const existingUser = await findUserByEmail(email);
   if (existingUser) {
-    throw new conflictError("User already exists");
+    throw new conflictError("User already exists", ErrorCodes.AUTH_USER_ALREADY_EXISTS);
   }
   const user = await createUser(name, email, password);
   const userObj = user.toJSON()
@@ -33,7 +34,7 @@ export const registerUser = async (name, email, password) => {
 export const loginUser = async (email, password, deviceInfo = {}) => {
   const user = await findUserByEmailWithPassword(email);
   if (!user || !(await user.comparePassword(password))) {
-    throw new UnauthorizedError("Invalid email or password");
+    throw new UnauthorizedError("Invalid email or password", ErrorCodes.AUTH_INVALID_CREDENTIALS);
   }
   const userObj = user.toJSON();
   if(!user.isVerified){

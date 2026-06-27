@@ -1,18 +1,20 @@
 import express from 'express'
 import { authMiddleware } from '../middleware/auth.middleware.js'
+import { authenticatedApiLimiter } from '../middleware/rateLimiter.js'
 import {getOverallBreakdown, getOverallLeaderboard, getOverallSummary, getOverallTimeseries, getUrlBreakdown, getUrlSummary, getUrlTimeseries} from '../controller/analytics.controller.js'
 const router = express.Router()
+router.use(authMiddleware, authenticatedApiLimiter);
 
 // gives overall results
-router.get('/summary', authMiddleware, getOverallSummary);
-router.get('/timeseries', authMiddleware, getOverallTimeseries);
-router.get('/breakdown', authMiddleware, getOverallBreakdown);
-router.get('/leaderboard', authMiddleware, getOverallLeaderboard)
+router.get('/summary', getOverallSummary);
+router.get('/timeseries', getOverallTimeseries);
+router.get('/breakdown', getOverallBreakdown);
+router.get('/leaderboard', getOverallLeaderboard)
 
 // gives results for specific urls
-router.get('/summary/:id', authMiddleware, getUrlSummary);
-router.get('/timeseries/:id', authMiddleware, getUrlTimeseries);
-router.get('/breakdown/:id', authMiddleware, getUrlBreakdown);
+router.get('/summary/:id', getUrlSummary);
+router.get('/timeseries/:id', getUrlTimeseries);
+router.get('/breakdown/:id', getUrlBreakdown);
 
 
 

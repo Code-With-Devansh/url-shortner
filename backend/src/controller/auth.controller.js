@@ -1,5 +1,4 @@
 import {
-  AccessTokenCookieOptions,
   deviceIdCookieOptions,
   refreshTokenCookieOptions,
 } from "../config/config.js";
@@ -42,6 +41,7 @@ import {
   verifyToken,
 } from "../utils/helper.js";
 import tryCatch from "../utils/tryCatch.js";
+import { ErrorCodes } from "../utils/errorCodes.js";
 import {
   NotFoundError,
   UnauthorizedError,
@@ -97,7 +97,7 @@ export const login_user = tryCatch(async (req, res, next) => {
     deviceInfo,
   );
   if (!accessToken) {
-    throw new UnauthorizedError("User is not Verified.");
+     throw new UnauthorizedError("User is not Verified.", ErrorCodes.AUTH_EMAIL_NOT_VERIFIED);
   }
   if (isNewDevice) {
     res.cookie("deviceId", deviceId, deviceIdCookieOptions);
@@ -118,7 +118,7 @@ export const refreshAccessToken = tryCatch(async (req, res, next) => {
   const refreshToken = req.cookies.refreshToken;
   let deviceId = req.cookies.deviceId;
   if (!refreshToken || !deviceId)
-    throw new UnauthorizedError("Session expired. Please login again.");
+     throw new UnauthorizedError("Session expired. Please login again.", ErrorCodes.AUTH_SESSION_EXPIRED);
   const deviceInfo = {
     deviceId,
     ip: req.ip,
@@ -135,7 +135,7 @@ export const refreshAccessToken = tryCatch(async (req, res, next) => {
   if (!stored) {
     await delAllCachedRefreshTokens(userId);
     await delAllRefreshTokens(userId);
-    throw new UnauthorizedError("Session expired. Please login again.");
+   throw new UnauthorizedError("Session expired. Please login again.", ErrorCodes.AUTH_SESSION_EXPIRED);
   }
   await delCachedRefreshToken(userId, deviceId);
   await delRefreshToken(userId, deviceId);
@@ -147,7 +147,9 @@ export const refreshAccessToken = tryCatch(async (req, res, next) => {
   res.json({
     success: true,
     message: "Access Token refreshed.",
-    accessToken: newAccessToken,
+    data:{
+      accessToken: newAccessToken,
+    }
   });
 }, "Refresh Access Token");
 
@@ -186,7 +188,7 @@ export const verifyEmail = tryCatch(async (req, res, next) => {
   const { token } = req.params;
   const user = await verifyEmailVerificationToken(token);
   if (!user) {
-    return res.send({ success: false, message: "Email verification failed" });
+    throw new ValidationError({"token":"Invalid Token"}, ErrorCodes.AUTH_EMAIL_VERIFICATION_FAILED);
   }
   let deviceId = req.cookies.deviceId;
   const isNewDevice = !deviceId;
@@ -243,7 +245,7 @@ export const changePassword = tryCatch(async (req, res, next) => {
   }
   const user = await verifyPasswordResetToken(token);
   if (!user) {
-    throw new ValidationError("Token invalid");
+     throw new UnauthorizedError("Reset token is invalid or has expired.", ErrorCodes.AUTH_TOKEN_INVALID);
   }
   await removePasswordResetToken(user);
   await updatePassword(user, password);
@@ -254,7 +256,7 @@ export const verificationStatus = tryCatch(async (req, res, next) => {
   const email = req.query.email;
   const user = await findUserByEmail(email);
   if (!user) {
-    throw new ValidationError("some error occurred.");
+    throw new NotFoundError("No account found for this email.", ErrorCodes.AUTH_USER_NOT_FOUND);
   }
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");

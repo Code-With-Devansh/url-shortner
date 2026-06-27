@@ -3,8 +3,11 @@ import UrlForm from "../components/UrlForm";
 import axios from "axios";
 import { createShortUrl } from "../api/shortUrl.api";
 import urlSchema from "../schema/url.schema";
+import { useSelector } from "react-redux";
 
 const Homepage = () => {
+ const { loadingUser, user } = useSelector((state) => state.auth);
+  const userId = loadingUser ? null : user?.id;
   const [shortUrl, setShortUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -22,7 +25,8 @@ const Homepage = () => {
       if (!validationResult.success) {
         throw new Error(validationResult.error.issues[0].message);
       }
-      const short_url = await createShortUrl(url);
+      // get userid from redux store
+      const short_url = await createShortUrl(url, userId);
       setShortUrl(short_url);
     } catch (err) {
       setError(err.message || "An error occurred while shortening the URL");
