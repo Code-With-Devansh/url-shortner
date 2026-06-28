@@ -41,14 +41,7 @@ export const createShortUrlWithUserService = async (
   return id;
 };
 
-const buildFilter = ({
-  userId,
-  search,
-  isActive,
-  cursor,
-  sortBy,
-  order,
-}) => {
+const buildFilter = ({ userId, search, isActive, cursor, sortBy, order }) => {
   const filter = { user: userId };
 
   if (isActive !== undefined) {
@@ -123,9 +116,20 @@ const buildSearchPipeline = ({
         compound: {
           must: [
             {
-              text: {
+              autocomplete: {
                 query: search,
-                path: ["full_url", "short_url"],
+                path: "full_url",
+                tokenOrder: "any",
+              },
+            },
+          ],
+          should: [
+            {
+              autocomplete: {
+                query: search,
+                path: "short_url",
+                tokenOrder: "any",
+                score: { boost: { value: 2 } },
               },
             },
           ],
@@ -148,7 +152,8 @@ const buildSearchPipeline = ({
               sortBy === "createdAt"
                 ? {
                     _id: {
-                      [order === "desc" ? "$lt" : "$gt"]: new mongoose.Types.ObjectId(cursor.id),
+                      [order === "desc" ? "$lt" : "$gt"]:
+                        new mongoose.Types.ObjectId(cursor.id),
                     },
                   }
                 : {
@@ -161,7 +166,8 @@ const buildSearchPipeline = ({
                       {
                         [sortBy]: cursor.value,
                         _id: {
-                          [order === "desc" ? "$lt" : "$gt"]: new mongoose.Types.ObjectId(cursor.id),
+                          [order === "desc" ? "$lt" : "$gt"]:
+                            new mongoose.Types.ObjectId(cursor.id),
                         },
                       },
                     ],
@@ -186,14 +192,7 @@ const buildSort = ({ sortBy, order }) => {
 };
 
 export const getUserUrls = async (userId, params) => {
-  const {
-    limit,
-    sortBy,
-    order,
-    cursor,
-    search,
-    isActive,
-  } = params;
+  const { limit, sortBy, order, cursor, search, isActive } = params;
 
   let docs;
 
