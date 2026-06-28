@@ -3,6 +3,7 @@ import {
   findShortUrlbySlug,
   queryShortUrls,
   saveShortUrl,
+  searchShortUrls,
 } from "../dao/shortUrl.js";
 import { ShortUrlSchema } from "../models/shortUrl.model.js";
 import { generateShortUrl } from "../utils/helper.js";
@@ -10,7 +11,9 @@ import { AppError, conflictError } from "../utils/appError.js";
 import { cacheUrl } from "../dao/url.redis.js";
 import { encodeCursor } from "../schema/urlQuery.validator.js";
 import { ErrorCodes } from "../utils/errorCodes.js";
+import mongoose from "mongoose";
 
+const USE_ATLAS_SEARCH = process.env.USE_ATLAS_SEARCH === "true";
 export const createShortUrlwithoutUserService = async (url) => {
   const id = generateShortUrl(7);
   if (!id) {
@@ -42,45 +45,41 @@ const buildFilter = ({
   userId,
   search,
   isActive,
-  expiryFilter,
   cursor,
   sortBy,
   order,
 }) => {
   const filter = { user: userId };
 
-  // ── isActive ──
   if (isActive !== undefined) {
     filter.isActive = isActive;
   }
-  // ── text search ──
-  // NOTE: When $text is present, MongoDB cannot use the compound { user, createdAt }
-  // index simultaneously. For high-traffic apps consider Atlas Search instead.
-  if (search) {
+
+  // Only use $text locally
+  if (search && !USE_ATLAS_SEARCH) {
     filter.$text = { $search: search };
   }
 
-  // ── cursor (keyset pagination) ──
-  // We fetch `limit + 1` docs and use the extra to determine `hasMore`.
-  // The cursor encodes the last doc's { id, value } so we can do:
-  //   WHERE (sortField, _id) < (cursorValue, cursorId)   ← for desc
-  //   WHERE (sortField, _id) > (cursorValue, cursorId)   ← for asc
-  //
-  // This is a compound keyset — using _id as a tiebreaker ensures stable
-  // pagination even when multiple docs share the same sortBy value.
   if (cursor) {
     const gtOrLt = order === "desc" ? "$lt" : "$gt";
 
     if (sortBy === "createdAt") {
-      // createdAt is colocated with _id order, so a simple _id cursor is enough
-      filter._id = { [gtOrLt]: cursor.id };
+      filter._id = {
+        [gtOrLt]: new mongoose.Types.ObjectId(cursor.id),
+      };
     } else {
-      // For clicks  we need a compound keyset:
-      // either the sort value is strictly less/greater, OR
-      // it's equal and we break the tie with _id
       filter.$or = [
-        { [sortBy]: { [gtOrLt]: cursor.value } },
-        { [sortBy]: cursor.value, _id: { [gtOrLt]: cursor.id } },
+        {
+          [sortBy]: {
+            [gtOrLt]: cursor.value,
+          },
+        },
+        {
+          [sortBy]: cursor.value,
+          _id: {
+            [gtOrLt]: new mongoose.Types.ObjectId(cursor.id),
+          },
+        },
       ];
     }
   }
@@ -88,48 +87,167 @@ const buildFilter = ({
   return filter;
 };
 
-const buildSort = ({ sortBy, order, search }) => {
+const buildSearchPipeline = ({
+  userId,
+  search,
+  isActive,
+  cursor,
+  sortBy,
+  order,
+  limit,
+}) => {
   const dir = order === "desc" ? -1 : 1;
 
-  // When $text search is active, include textScore so most-relevant results
-  // surface first. sortBy is still applied as secondary sort.
-  if (search) {
-    return { score: { $meta: "textScore" }, [sortBy]: dir, _id: dir };
+  const filter = [
+    {
+      equals: {
+        path: "user",
+        value: new mongoose.Types.ObjectId(userId),
+      },
+    },
+  ];
+
+  if (isActive !== undefined) {
+    filter.push({
+      equals: {
+        path: "isActive",
+        value: isActive,
+      },
+    });
   }
 
-  // Always include _id as a tiebreaker — required for stable cursor pagination
-  return { [sortBy]: dir, _id: dir };
+  return [
+    {
+      $search: {
+        index: "default",
+        compound: {
+          must: [
+            {
+              text: {
+                query: search,
+                path: ["full_url", "short_url"],
+              },
+            },
+          ],
+          filter,
+        },
+      },
+    },
+
+    {
+      $sort: {
+        [sortBy]: dir,
+        _id: dir,
+      },
+    },
+
+    ...(cursor
+      ? [
+          {
+            $match:
+              sortBy === "createdAt"
+                ? {
+                    _id: {
+                      [order === "desc" ? "$lt" : "$gt"]: new mongoose.Types.ObjectId(cursor.id),
+                    },
+                  }
+                : {
+                    $or: [
+                      {
+                        [sortBy]: {
+                          [order === "desc" ? "$lt" : "$gt"]: cursor.value,
+                        },
+                      },
+                      {
+                        [sortBy]: cursor.value,
+                        _id: {
+                          [order === "desc" ? "$lt" : "$gt"]: new mongoose.Types.ObjectId(cursor.id),
+                        },
+                      },
+                    ],
+                  },
+          },
+        ]
+      : []),
+
+    {
+      $limit: limit + 1,
+    },
+  ];
+};
+
+const buildSort = ({ sortBy, order }) => {
+  const dir = order === "desc" ? -1 : 1;
+
+  return {
+    [sortBy]: dir,
+    _id: dir,
+  };
 };
 
 export const getUserUrls = async (userId, params) => {
-  const { limit, sortBy, order, cursor, search, isActive, expiryFilter } =
-    params;
-
-  const filter = buildFilter({
-    userId,
-    search,
-    isActive,
-    expiryFilter,
-    cursor,
+  const {
+    limit,
     sortBy,
     order,
-  });
-  const sort = buildSort({ sortBy, order, search });
-  let query = { filter, sort, limit: limit + 1 };
+    cursor,
+    search,
+    isActive,
+  } = params;
 
-  const docs = await queryShortUrls(query, search);
+  let docs;
+
+  if (search && USE_ATLAS_SEARCH) {
+    const pipeline = buildSearchPipeline({
+      userId,
+      search,
+      isActive,
+      cursor,
+      sortBy,
+      order,
+      limit,
+    });
+
+    docs = await searchShortUrls(pipeline);
+  } else {
+    const filter = buildFilter({
+      userId,
+      search,
+      isActive,
+      cursor,
+      sortBy,
+      order,
+    });
+
+    const sort = buildSort({
+      sortBy,
+      order,
+    });
+
+    docs = await queryShortUrls({
+      filter,
+      sort,
+      limit: limit + 1,
+    });
+  }
 
   const hasMore = docs.length > limit;
   const urls = hasMore ? docs.slice(0, limit) : docs;
 
   let nextCursor = null;
+
   if (hasMore) {
     const last = urls[urls.length - 1];
+
     nextCursor = encodeCursor({
       id: last._id.toString(),
       value: last[sortBy],
     });
   }
 
-  return { urls, hasMore, nextCursor };
+  return {
+    urls,
+    hasMore,
+    nextCursor,
+  };
 };

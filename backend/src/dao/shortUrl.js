@@ -40,16 +40,16 @@ export const deleteShortUrlDao = async (id, userId) => {
 };
 
 
-export const queryShortUrls = async (query, search) => {
-  const {filter, sort, limit} = query;
-  let mongooseQuery = ShortUrlSchema.find(filter).sort(sort).limit(limit).lean();
-  if (search) {
-    mongooseQuery = mongooseQuery.select({ score: { $meta: "textScore" } });
-  }
-  return await mongooseQuery;
-}
+export const queryShortUrls = ({ filter, sort, limit }) => {
+    return ShortUrlSchema.find(filter)
+        .sort(sort)
+        .limit(limit);
+};
 
 export const findShortUrlByIdForUser = async (id, userId) => {
   return ShortUrlSchema.findOne({ _id: id, user: userId }).lean();
 };
  
+
+export const searchShortUrls = (pipeline) =>
+    ShortUrlSchema.aggregate(pipeline);
