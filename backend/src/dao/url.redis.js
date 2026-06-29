@@ -1,23 +1,14 @@
 import redis from "../config/redis.config.js";
 import { urlCacheKey, URL_CACHE_TTL } from "../utils/cacheKeys.js";
+import { writeEnvelope } from "../utils/withCache.js";
 
 export const getCachedUrl = async (shortCode) => {
-  const cached = await redis.get(urlCacheKey(shortCode));
-  if (!cached) return null;
-  try {
-    return JSON.parse(cached);
-  } catch {
-    return null;
-  }
+  const envelope = await readEnvelope(urlCacheKey(shortCode));
+  if (!envelope) return null;
+  return envelope.value;
 };
-
 export const cacheUrl = async (shortCode, shortUrlObj) => {
-  await redis.set(
-    urlCacheKey(shortCode),
-    JSON.stringify(shortUrlObj),
-    "EX",
-    URL_CACHE_TTL,
-  );
+  await writeEnvelope(urlCacheKey(shortCode), shortUrlObj, URL_CACHE_TTL);
 };
 
 export const deleteCachedUrl = async (shortCode) => {

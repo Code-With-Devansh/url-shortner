@@ -14,6 +14,18 @@ import { ErrorCodes } from "../utils/errorCodes.js";
 import mongoose from "mongoose";
 
 const USE_ATLAS_SEARCH = process.env.USE_ATLAS_SEARCH === "true";
+const APP_DOMAIN = new URL(process.env.BASE_URL).host;
+
+const prepareSearchQuery = (rawQuery, domain) => {
+  const pattern = new RegExp(
+    `https?:\\/\\/(www\\.)?${domain.replace(/\./g, "\\.")}\\/?`,
+    "i",
+  );
+  const stripped = rawQuery.replace(pattern, "").trim();
+  return stripped.length > 0 ? stripped : rawQuery;
+};
+
+
 export const createShortUrlwithoutUserService = async (url) => {
   const id = generateShortUrl(7);
   if (!id) {
@@ -112,7 +124,7 @@ const buildSearchPipeline = ({
   return [
     {
       $search: {
-        index: "default",
+        index: "search_index",
         compound: {
           must: [
             {
@@ -192,8 +204,10 @@ const buildSort = ({ sortBy, order }) => {
 };
 
 export const getUserUrls = async (userId, params) => {
-  const { limit, sortBy, order, cursor, search, isActive } = params;
-
+  const { limit, sortBy, order, cursor, isActive } = params;
+  const search = params.search
+    ? prepareSearchQuery(params.search, APP_DOMAIN)
+    : params.search;
   let docs;
 
   if (search && USE_ATLAS_SEARCH) {
