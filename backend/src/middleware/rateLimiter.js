@@ -146,3 +146,16 @@ export const authenticatedApiLimiter = rateLimit({
   store: createStore("api"),
   keyGenerator: (req) => req.user?.id || ipKeyGenerator(req),
 });
+
+
+export const claimSessionLimiter = rateLimit({
+  ...commonConfig,
+  message: {
+    success: false,
+    code: ErrorCodes.RATE_LIMITED_API,
+    message: "Too many requests. Please slow down.",
+  },
+  windowMs: 3 * 60 * 1000,
+  max: 1,
+  store: createStore("claim-session"),
+});

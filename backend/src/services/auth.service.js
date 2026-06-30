@@ -1,4 +1,5 @@
 import { checkIfRefreshTokenExistsDao, saveRefreshToken } from "../dao/refreshToken.dao.js";
+import crypto from "crypto";
 import {
   createUser,
   findUserByEmail,
@@ -7,7 +8,7 @@ import {
   savePasswordResetToken,
   saveVerificationToken,
 } from "../dao/user.dao.js";
-import { cacheRefreshToken, checkCachedRefreshToken, getCachedRefreshToken } from "../dao/user.redis.js";
+import { cacheRefreshToken, checkCachedRefreshToken, getCachedRefreshToken, getUserIdBySessionToken, saveSessionTokenToRedis } from "../dao/user.redis.js";
 import { emailQueue } from "../queues/queues.js";
 import {
   conflictError,
@@ -67,6 +68,26 @@ export const generateAndStoreVerificationToken = async (user) => {
   const { token, hashedToken } = generateVerificationToken();
   await saveVerificationToken(user, hashedToken);
   return token;
+};
+
+export const storeSessionToken = async (user, sessionToken) => {
+  await saveSessionTokenToRedis(user._id.toString(), sessionToken, 10 * 60);
+};
+
+export const verifySessionToken = async (sessionToken) => {
+  const userId = await getUserIdBySessionToken(sessionToken);
+  return userId;
+}
+
+export const generateAndStoreClaimToken = async (userId, deviceId) => {
+  const { token, hashedToken } = generateVerificationToken();
+  await saveClaimRecord(hashedToken, { userId, deviceId }, 10 * 60);
+  return token;
+};
+
+export const readAndConsumeClaimToken = async (claimToken) => {
+  const hashedToken = crypto.createHash("sha256").update(claimToken).digest("hex");
+  return readAndDeleteClaimRecord(hashedToken);
 };
 
 export const generateAndStorePasswordResetToken = async(email)=>{

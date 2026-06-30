@@ -1,28 +1,21 @@
-1. search is now working but testing is required.(new not searching).
+
 0. now also analytics worker is a cron ran at 3 am everyday. to save click bucket to db one call a day. to get the analytics of today. i want to not query the db instead get data from the redis. is my thinking going right. any possible tradeoffs? or failures during production ref: http://localhost:5000/cron
-0. currently every click make a redis call will this hammer redis? should the worker process clicks in batch?
+
 0.1 retention is set to 90 days in helper/analytics.js. inspection remaining.s
 0.4 get country for analytics. device not setting up in analytics.
 
 
 0. should i add circuit breakers? A circuit breaker around Mongo/Redis lets the service fail fast until dependencies recover.
-1. google Oauth
 2. add terms and policy
-3. better error handler with all the required codes.
-4. rate limiter is not made yet.
+3. error pages: 404 500 etc.
 5. Range-Based ID Generation  https://claude.ai/chat/18fa9123-b42c-4625-9c00-ea66cf79e380
 6. normalise input: sushil@gmail.com = Sushil@gmail.com.
-7. Docker support
 8. CI/CD
 9. monitoring
-10. API docs
 12. some modularity
-13. show preview before redirecting to the page... also one more thing to think either count click on backend or frontend...
-14. Store Device IDs in a Set ref: http://localhost:5000/rRIyxOw
 15. visual issues with the font and font color
 
 bugs:
-1. if i verify email from another chrome user id then cookies are not set to main chrome user that causes refreshtoken to not been set to the main chrome instance.
 2. for logs: Vector Config,  Docker Compose  ref: https://claude.ai/chat/54b99c02-ca36-4d1c-936a-58d55cfdae68
 4. logging out during email verification raises a bug.
 5. dashboard if there is no link it is still clickable.  (top link, newest)
@@ -31,14 +24,9 @@ uniqueVisitors summed across days is an upper bound, not a true unique count. Th
 
 features for testing:
 1. forgot password.
+1. search is now working but testing is required.(new not searching).
 
 arch Issues:
-1. currently using redis bullMQ and thinking moving to kafka doesn't benefit on this scale.
-   thinking to move to kafka when 
-	- Multiple separate backend services (not just one Node app) need the same click event independently
-	- You need to reprocess months of historical events when logic changes
-	- Event volume exceeds what a single Redis instance comfortably queues (tens of thousands of jobs/sec sustained)
-	- You're building a system where data lineage/audit replay is a hard requirement
 4. CORS origin is a single string — no multi-origin or regex support
 APP_URL_CORS is a plain string. If you ever need staging + production origins, you'll need to refactor. Also, there's no fallback if the env var is missing — CORS will silently block all cross-origin requests with no error. Validate required env vars at startup.
 

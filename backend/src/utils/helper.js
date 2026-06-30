@@ -55,6 +55,10 @@ export const generateVerificationToken = () => {
   return { token, hashedToken };
 };
 
+export const generateRandomToken = () => {
+  return crypto.randomBytes(32).toString("hex");
+};
+
 export const verifyEmailVerificationToken = async (token) => {
   const hashedIncomingToken = crypto
     .createHash("sha256")

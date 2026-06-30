@@ -22,7 +22,15 @@ export const toRegisterResponseDTO = (user) => ({
   message: "User registered successfully",
 });
 
-export const toAuthResponseDTO = (message, success = true) => ({
+export const toAuthResponseDTO = (message, token, success = true) => ({
   success,
+  data: token ? { token } : {},
   message,
 });
+
+export const toVerificationLinkResponseDTO = (sessionToken, success = true) => ({
+  success,
+  data: { sessionToken },
+  message: "Verification Link Sent",
+});
+ 

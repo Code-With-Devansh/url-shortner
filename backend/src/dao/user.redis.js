@@ -67,3 +67,47 @@ export const delAllCachedRefreshTokens = async (userId) => {
 
   await multi.exec();
 };
+
+export const saveSessionTokenToRedis = async (userId, sessionToken, ttl) => {
+  const hashedToken = crypto
+    .createHash("sha256")
+    .update(sessionToken)
+    .digest("hex");
+  await await redis.set(`session:${hashedToken}`, userId, "EX", ttl);
+};
+
+export const delSessionTokenFromRedis = async (sessionToken) => {
+  const hashedToken = crypto
+    .createHash("sha256")
+    .update(sessionToken)
+    .digest("hex"); 
+  await redis.del(`session:${hashedToken}`);
+};
+
+export const getUserIdBySessionToken = async (sessionToken) => {
+  const hashedToken = crypto
+    .createHash("sha256")
+    .update(sessionToken)
+    .digest("hex");
+  return await redis.get(`session:${hashedToken}`);
+};
+
+export const saveClaimRecord = async (hashedClaimToken, { userId, deviceId }, ttlSeconds) => {
+  const expiresAt = Date.now() + ttlSeconds * 1000;
+  await redis.set(
+    `claim:${hashedClaimToken}`,
+    JSON.stringify({ userId, deviceId, expiresAt }),
+    "EX",
+    ttlSeconds,
+  );
+};
+
+export const readAndDeleteClaimRecord = async (hashedClaimToken) => {
+  const raw = await redis.getdel(`claim:${hashedClaimToken}`);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+};

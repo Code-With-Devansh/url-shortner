@@ -314,7 +314,13 @@ Request a new email-verification link.
 **Success — `200`:** Always returns the same message, regardless of whether the account exists or is already verified — this is intentional, to avoid leaking which emails are registered:
 
 ```json
-{ "success": true, "message": "Verification Link Sent" }
+{ 
+  "success": true, 
+  "message": "Verification Link Sent", 
+  "data": {
+    "sessionToken":"5a4f25df1fcca1ba1b..."
+  } 
+}
 ```
 
 **Errors:** `400 VALIDATION_FAILED`, `429 RATE_LIMITED_EMAIL`
@@ -323,7 +329,7 @@ Request a new email-verification link.
 
 #### `GET /api/auth/verify-email/:token`
 
-Verification link target (clicked from the emailed link, not typically called directly by a frontend client). On success, logs the user in (sets cookies) and redirects to `${APP_URL}/auth/email-verified`.
+Verification link target (clicked from the emailed link, not typically called directly by a frontend client). On success, redirects to `${APP_URL}/auth/email-verified`.
 
 **Auth required:** No
 
@@ -337,11 +343,11 @@ Server-Sent Events (SSE) stream that notifies the client the moment an account b
 
 **Auth required:** No
 
-**Query params:** `email` (required)
+**Query params:** `sessionToken` (required)
 
-**Response:** `Content-Type: text/event-stream`. Sends a `verified` event with the user payload + access token once verification completes; sends a heartbeat comment every 30s to keep the connection alive.
+**Response:** `Content-Type: text/event-stream`. Sends a `verified` event ```{success:true}``` once verification completes; sends a heartbeat comment every 30s to keep the connection alive.
 
-**Errors:** `404 AUTH_USER_NOT_FOUND` (no account for that email)
+**Errors:** `401 AUTH_TOKEN_INVALID` (Invalid SessionToken)
 
 ---
 
@@ -588,6 +594,6 @@ Liveness/readiness check.
 
 **Auth required:** No
 
-**Success — `200`:** `{ "success": true }`
+**Success — `200`:** `{ "success": true, "inFlight": 1 }`
 
 **During graceful shutdown — `503`:** `{ "success": false, "status": "shutting_down" }`

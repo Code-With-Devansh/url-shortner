@@ -40,6 +40,10 @@ subscriber.on("message", (channel, raw) => {
 
   res.write(`event: ${event}\n`);
   res.write(`data: ${JSON.stringify(data)}\n\n`);
+   if (event === "verified") {
+    clients.delete(userId);
+    res.end();
+  }
 });
 
 

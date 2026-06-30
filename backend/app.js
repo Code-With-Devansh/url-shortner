@@ -1,6 +1,5 @@
 import express from "express";
 import cors from "cors";
-import { nanoid } from "nanoid";
 import shortUrlRoute from "./src/routes/shortUrl.route.js";
 import authRoute from "./src/routes/auth.route.js";
 import { redirectFromShortUrl } from "./src/controller/shortUrl.controller.js";
@@ -12,7 +11,7 @@ import { requestLogger } from "./src/middleware/requestLogger.js";
 import { isShuttingDown } from "./state/shutdown.js";
 import helmet from "helmet";
 import analyticsRoute from "./src/routes/analytics.route.js";
-import {tokenBucketLimiter} from "./src/utils/tokenBucketLimiter.js ";
+import {tokenBucketLimiter} from "./src/utils/tokenBucketLimiter.js";
 import { concurrencyLimiter, getInFlightCount } from "./src/middleware/concurrencyLimiter.js";
 // capacity = burst size, refillPerSec = sustained steady-state rate.
 // These are starting points sized generously above a guessed legitimate
@@ -39,7 +38,6 @@ app.use(helmet());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
-app.use(requestLogger);
 app.use("/static", express.static("public"));
 
 app.use((req, res, next) => {
