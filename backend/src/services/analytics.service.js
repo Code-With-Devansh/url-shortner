@@ -54,7 +54,6 @@ function mergeBuckets(buckets) {
     summary.total += bucket.total || 0;
     // NOTE: see "uniqueVisitors across days" caveat below — this sum is an
     // upper bound, not a true unique count across the whole range.
-    summary.uniqueVisitors += bucket.uniqueVisitors || 0;
 
     for (const dim of [
       "countries",
@@ -283,8 +282,17 @@ export const getOverallAnalyticsTimeseries = async (userId, range) => {
       entry.uniqueVisitors += bucket.uniqueVisitors || 0; // upper bound, see caveat
       byDate.set(bucket.date, entry);
     }
+const days = [...byDate.values()].sort((a, b) =>
+      a.date.localeCompare(b.date),
+    );
 
-    return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
+    return Promise.all(
+      days.map(async ({ date, total, hllKeys }) => ({
+        date,
+        total,
+        uniqueVisitors: await mergeUniqueVisitors(hllKeys),
+      })),
+    );
   });
 };
 

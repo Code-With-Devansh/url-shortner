@@ -19,7 +19,7 @@ import {
   delAllCachedRefreshTokens,
   delCachedRefreshToken,
   delSessionTokenFromRedis,
-} from "../dao/user.redis.js";
+} from "../cache/user.redis.js";
 import {
   checkIfRefreshTokenExists,
   generateAndStorePasswordResetToken,

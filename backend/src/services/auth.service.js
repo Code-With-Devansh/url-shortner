@@ -8,7 +8,7 @@ import {
   savePasswordResetToken,
   saveVerificationToken,
 } from "../dao/user.dao.js";
-import { cacheRefreshToken, checkCachedRefreshToken, getCachedRefreshToken, getUserIdBySessionToken, saveSessionTokenToRedis } from "../dao/user.redis.js";
+import { cacheRefreshToken, checkCachedRefreshToken, getCachedRefreshToken, getUserIdBySessionToken, saveSessionTokenToRedis } from "../cache/user.redis.js";
 import { emailQueue } from "../queues/queues.js";
 import {
   conflictError,

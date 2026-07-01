@@ -1,5 +1,5 @@
 import { mongoConnection } from "../config/mongo.config.js";
-import { reserveBloom } from "../dao/redirectBloom.redis.js";
+import { reserveBloom } from "../cache/redirectBloom.redis.js";
 import { ShortUrlSchema } from "../models/shortUrl.model.js";
 import redis from "../config/redis.config.js";
 import logger from "../logger/productionLogger.js";

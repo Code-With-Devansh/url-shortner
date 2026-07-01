@@ -1,6 +1,7 @@
 import { saveClickBucket } from "../../dao/clickBucket.dao.js";
 import redis from "../../config/redis.config.js";
 import { invalidateAnalyticsCache } from "../../utils/cacheKeys.js";
+import { archiveHllForDate, hllArchiveKey } from "../../cache/clickBucket.redis.js";
 const RETENTION_DAYS = 90;
 
 export async function flushAnalyticsKey(key) {
@@ -31,8 +32,11 @@ export async function flushAnalyticsKey(key) {
     else if (field.startsWith("hour:")) hours[field.slice(5)] = count;
   }
 
-  const hllKey = `analytics:${urlId}:${date}:visitors`;
-  const uniqueVisitors = await redis.pfcount(hllKey);
+  await archiveHllForDate(urlId, date, RETENTION_SECONDS);
+  const archiveKey = hllArchiveKey(urlId, date);
+   const uniqueVisitors = (await redis.exists(archiveKey))
+    ? await redis.pfcount(archiveKey)
+    : 0;
   const expireAt = new Date(Date.now() + RETENTION_DAYS * 86400000);
 
   await saveClickBucket(

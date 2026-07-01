@@ -1,6 +1,6 @@
 
 import { deleteShortUrlDao, findShortUrlbySlug } from "../dao/shortUrl.js";
-import { cacheUrl, deleteCachedUrl } from "../dao/url.redis.js";
+import { cacheUrl, deleteCachedUrl } from "../cache/url.redis.js";
 import urlSchema from "../schema/url.schema.js";
 import { UAParser } from "ua-parser-js";
 import {
@@ -17,7 +17,7 @@ import tryCatch from "../utils/tryCatch.js";
 import {
   addUrlToBloom,
   checkIfExistinBloom,
-} from "../dao/redirectBloom.redis.js";
+} from "../cache/redirectBloom.redis.js";
 import { getCountry } from "../utils/geo.js";
 import { withCache, withStampedeProtection } from "../utils/withCache.js";
 import { urlCacheKey, URL_CACHE_TTL } from "../utils/cacheKeys.js";
