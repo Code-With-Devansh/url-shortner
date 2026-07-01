@@ -1,6 +1,6 @@
 import pkg from "../../package.json" with { type: "json" };
 import pino from "pino";
-import config from "../config";
+import config from "../config/index.js";
 
 const logger = pino({
   level: config.logging.level || "info",

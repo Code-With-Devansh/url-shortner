@@ -18,7 +18,6 @@ import {
   addUrlToBloom,
   checkIfExistinBloom,
 } from "../cache/redirectBloom.redis.js";
-import { getCountry } from "../utils/geo.js";
 import { withCache, withStampedeProtection } from "../utils/withCache.js";
 import { urlCacheKey, URL_CACHE_TTL } from "../utils/cacheKeys.js";
 import {

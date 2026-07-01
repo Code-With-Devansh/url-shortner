@@ -4,8 +4,8 @@ import redis from "./src/config/redis.config.js";
 import logger from "./src/logger/index.js";
 import { mongoConnection } from "./src/config/mongo.config.js";
 import { setShuttingDown } from "./state/shutdown.js";
-import { initGeo } from "./src/utils/geo.js";
 import config from "./src/config/index.js";
+import idGenerator from "./src/utils/idGenerator.js";
 let server;
 let isShuttingDown = false;
 
@@ -42,7 +42,7 @@ async function gracefulShutdown(signal) {
 
 async function startServer() {
   try {
-    await mongoConnection;
+    await Promise.all([mongoConnection, idGenerator.initialize()])
     const { default: app } = await import("./app.js");
     const PORT = config.app.port || 5000;
 

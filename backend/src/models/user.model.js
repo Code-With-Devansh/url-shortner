@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import crypto from 'crypto'
 import argon2 from "argon2";
-import config from "../config";
+import config from "../config/index.js";
 
 const userSchema = new mongoose.Schema({
   name: {

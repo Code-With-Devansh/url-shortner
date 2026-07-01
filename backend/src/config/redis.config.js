@@ -3,6 +3,7 @@ import logger from "../logger/index.js";
 import config from "./index.js";
 const options = {
   port: config.redis.port,
+  host:config.redis.host,
   retryStrategy: (times) => {
     if (times > 10) {
       logger.fatal("[redis] max reconnection attempts reached");

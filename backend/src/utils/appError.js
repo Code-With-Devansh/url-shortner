@@ -2,7 +2,7 @@
 // (e.g. "AUTH_EMAIL_NOT_VERIFIED") in addition to the HTTP status.
 // Convention: SCREAMING_SNAKE_CASE, namespaced by domain prefix
 
-import config from "../config";
+import config from "../config/index.js";
 
 // (AUTH_*, VALIDATION_*, URL_*, ANALYTICS_*, SERVER_*).
 class AppError extends Error {

@@ -1,4 +1,4 @@
-import config from "../config/index";
+import config from "../config/index.js";
 
 export const toUrlDTO = (doc) => ({
   id: doc._id.toString(),

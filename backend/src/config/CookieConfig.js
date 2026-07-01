@@ -1,4 +1,4 @@
-import config from "./index";
+import config from "./index.js";
 
 const isProd = config.app.env === "production";
 

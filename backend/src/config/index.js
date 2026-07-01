@@ -15,6 +15,7 @@ export default {
   redis: {
     port: process.env.REDIS_PORT,
     password: process.env.REDIS_PASSWORD,
+    host:process.env.REDIS_HOST
   },
   mongo: {
     uri: process.env.MONGO_URI,
@@ -27,5 +28,5 @@ export default {
   },
   passwordPepper:process.env.PASSWORD_PEPPER,
   useAtlasSearch:process.env.USE_ATLAS_SEARCH,
-
+  rangeSize: process.env.RANGE_SIZE,
 };

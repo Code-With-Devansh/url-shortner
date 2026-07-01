@@ -28,7 +28,7 @@ const prepareSearchQuery = (rawQuery, domain) => {
 
 
 export const createShortUrlwithoutUserService = async (url) => {
-  const id = generateShortUrl(7);
+  const id = await generateShortUrl();
   if (!id) {
     throw new Error("Failed to generate short URL", 500);
   }
@@ -41,7 +41,7 @@ export const createShortUrlWithUserService = async (
   userId,
   slug = null,
 ) => {
-  const id = slug && slug.length > 0 ? slug : generateShortUrl(7);
+  const id = slug && slug.length > 0 ? slug : await generateShortUrl();
   const exists = await findShortUrlbySlug(id);
   if (exists) {
     throw new conflictError(

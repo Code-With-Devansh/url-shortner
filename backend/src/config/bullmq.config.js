@@ -3,6 +3,7 @@ import logger from "../logger/index.js";
 import config from "./index.js";
 
 const bullmqClient = new IORedis({
+  host:config.redis.host,
   port: config.redis.port,
   password: config.redis.password,
   username: "default",

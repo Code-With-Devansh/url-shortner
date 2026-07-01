@@ -1,4 +1,4 @@
-import { nanoid } from "nanoid";
+
 import { jwtVerify, SignJWT } from "jose";
 import { ValidationError } from "./appError.js";
 import crypto from "crypto";
@@ -8,8 +8,9 @@ import {
   verifyPasswordResetTokenDao,
 } from "../dao/user.dao.js";
 import config from "../config/index.js";
-export const generateShortUrl = (length = 7) => {
-  const id = nanoid(7);
+import idGenerator from "./idGenerator.js";
+export const generateShortUrl = async() => {
+  const id = await idGenerator.generateId();
   return id;
 };
 
@@ -111,3 +112,5 @@ export const getUserByAccessToken = async (accessToken) => {
     return null
   }
 };
+
+
