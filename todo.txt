@@ -13,7 +13,6 @@ overall summary dont contain the today record. need to run cron every 5 min lets
 15. visual issues with the font and font color
 
 bugs:
-2. for logs: Vector Config,  Docker Compose  ref: https://claude.ai/chat/54b99c02-ca36-4d1c-936a-58d55cfdae68
 4. logging out during email verification raises a bug.
 5. dashboard if there is no link it is still clickable.  (top link, newest)
 

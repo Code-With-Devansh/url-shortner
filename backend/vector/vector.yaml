@@ -1,0 +1,37 @@
+
+sources:
+  docker_logs:
+    type: docker_logs
+    include_containers:
+      - api
+      - api2
+      - worker-click
+      - worker-email
+      - cron            
+
+# ---- PARSE & ENRICH ----
+transforms:
+  parse_json:
+    type: remap
+    inputs:
+      - docker_logs
+    source: |
+      . = parse_json!(.message)
+      .host = get_hostname!()
+      .container = .container_name
+
+
+sinks:
+  axiom:
+    type: axiom
+    inputs:
+      - parse_json
+    token: "${AXIOM_TOKEN}"
+    dataset: "${AXIOM_DATASET}"
+
+  console:
+    type: console
+    inputs:
+      - parse_json
+    encoding:
+      codec: json
