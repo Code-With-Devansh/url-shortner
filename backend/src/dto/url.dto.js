@@ -1,9 +1,10 @@
+import config from "../config/index";
 
 export const toUrlDTO = (doc) => ({
   id: doc._id.toString(),
   full_url: doc.full_url,
   shortCode: doc.shortCode,
-  short_url: `${process.env.BASE_URL}${doc.short_url}`,
+  short_url: `${config.app.baseUrl}${doc.short_url}`,
   clicks: doc.clicks,
   isActive: doc.isActive,
   createdAt: doc.createdAt.toISOString(),

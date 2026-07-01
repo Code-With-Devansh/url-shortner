@@ -7,31 +7,32 @@ import {
   verifyEmailVerificationTokenDao,
   verifyPasswordResetTokenDao,
 } from "../dao/user.dao.js";
+import config from "../config/index.js";
 export const generateShortUrl = (length = 7) => {
   const id = nanoid(7);
   return id;
 };
 
 export const generateAccessToken = (userId) => {
-  const secret = new TextEncoder().encode(process.env.JWT_SECRET);
+  const secret = new TextEncoder().encode(config.jwt.accessTokenSecret);
   const token = new SignJWT({ userId })
     .setProtectedHeader({ alg: "HS256" })
-    .setExpirationTime("15m")
+    .setExpirationTime(config.jwt.accessTokenExpiresIn)
     .sign(secret);
   return token;
 };
 
 export const generateRefreshToken = (userId) => {
-  const secret = new TextEncoder().encode(process.env.JWT_REFRESH_SECRET);
+  const secret = new TextEncoder().encode(config.jwt.refreshTokenSecret);
   const token = new SignJWT({ userId })
     .setProtectedHeader({ alg: "HS256" })
-    .setExpirationTime("20d")
+    .setExpirationTime(config.jwt.refreshTokenExpiresIn)
     .sign(secret);
   return token;
 };
 
 export const verifyToken = async (token) => {
-  const secret = new TextEncoder().encode(process.env.JWT_SECRET);
+  const secret = new TextEncoder().encode(config.jwt.accessTokenSecret);
   try {
     const { payload } = await jwtVerify(token, secret);
     return payload;
@@ -40,7 +41,7 @@ export const verifyToken = async (token) => {
   }
 };
 export const verifyRefreshToken = async (token) => {
-  const secret = new TextEncoder().encode(process.env.JWT_REFRESH_SECRET);
+  const secret = new TextEncoder().encode(config.jwt.refreshTokenSecret);
   try {
     const { payload } = await jwtVerify(token, secret);
     return payload;

@@ -1,6 +1,9 @@
 // Every operational error carries a stable, machine-readable `code` string
 // (e.g. "AUTH_EMAIL_NOT_VERIFIED") in addition to the HTTP status.
 // Convention: SCREAMING_SNAKE_CASE, namespaced by domain prefix
+
+import config from "../config";
+
 // (AUTH_*, VALIDATION_*, URL_*, ANALYTICS_*, SERVER_*).
 class AppError extends Error {
   constructor(message, statusCode, code = "INTERNAL_ERROR") {
@@ -23,7 +26,7 @@ class ValidationError extends AppError {
     super("Validation failed", 400, code);
     this.name = "ValidationError";
     if (typeof errors === "string") {
-      if (process.env.NODE_ENV !== "production") {
+      if (config.app.env!== "production") {
         throw new TypeError(
           `ValidationError expects a field->message object, got a string: "${errors}". Use a specific AppError subclass with a proper code instead.`,
         );

@@ -1,12 +1,13 @@
 import pkg from "../../package.json" with { type: "json" };
 import pino from "pino";
+import config from "../config";
 
 const logger = pino({
-  level: process.env.LOG_LEVEL || "info",
+  level: config.logging.level || "info",
   timestamp: pino.stdTimeFunctions.isoTime,
   base: {
-    service: process.env.SERVICE_NAME || "api",
-    env: process.env.NODE_ENV,
+    service: "api",
+    env: config.app.env,
     version: pkg.version,
   },
   formatters: {

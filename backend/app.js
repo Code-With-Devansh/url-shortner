@@ -13,6 +13,7 @@ import helmet from "helmet";
 import analyticsRoute from "./src/routes/analytics.route.js";
 import {tokenBucketLimiter} from "./src/utils/tokenBucketLimiter.js";
 import { concurrencyLimiter, getInFlightCount } from "./src/middleware/concurrencyLimiter.js";
+import config from "./src/config/index.js";
 // capacity = burst size, refillPerSec = sustained steady-state rate.
 // These are starting points sized generously above a guessed legitimate
 // peak (a single real visitor rarely re-clicks a link more than once or
@@ -27,7 +28,7 @@ const globalConcurrencyLimiter = concurrencyLimiter({ maxConcurrent: 500 });
 const app = express();
 app.use(
   cors({
-    origin: process.env.APP_URL_CORS,
+    origin: config.app.corsOrigin,
     credentials: true,
   }),
 );

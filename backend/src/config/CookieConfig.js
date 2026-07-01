@@ -1,4 +1,6 @@
-const isProd = process.env.NODE_ENV === "production";
+import config from "./index";
+
+const isProd = config.app.env === "production";
 
 export const refreshTokenCookieOptions = {
   httpOnly: true,

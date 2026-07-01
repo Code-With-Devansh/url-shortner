@@ -12,6 +12,7 @@
 // Implemented as a Lua script so the check-refill-decrement sequence is
 // atomic in Redis - without this, concurrent requests from the same IP
 // could race past each other and double-spend a token.
+import config from "../config/index.js";
 import redis from "../config/redis.config.js";
 import { TooManyRequestsError } from "./appError.js";
 import { ErrorCodes } from "./errorCodes.js";
@@ -56,7 +57,7 @@ return { allowed, tokens }
  */
 export const tokenBucketLimiter = ({ capacity, refillPerSec, prefix }) => {
   return async (req, res, next) => {
-    if (process.env.NODE_ENV === "development") return next();
+    if (config.app.env === "development") return next();
 
     const key = `ratelimit:${prefix}:${req.ip}`;
     const now = Date.now() / 1000;

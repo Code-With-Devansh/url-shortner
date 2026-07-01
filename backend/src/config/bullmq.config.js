@@ -1,10 +1,10 @@
 import IORedis from "ioredis";
 import logger from "../logger/index.js";
+import config from "./index.js";
 
 const bullmqClient = new IORedis({
-  host: process.env.REDIS_HOST,
-  port: Number(process.env.REDIS_PORT),
-  password: process.env.REDIS_PASSWORD,
+  port: config.redis.port,
+  password: config.redis.password,
   username: "default",
   retryStrategy: (times) => {
     if (times > 10) {

@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import crypto from 'crypto'
 import argon2 from "argon2";
+import config from "../config";
 
 const userSchema = new mongoose.Schema({
   name: {
@@ -65,13 +66,13 @@ userSchema.set("toJSON", {
 
 userSchema.pre("save", async function () {
   if (!this.isModified("password")) return;
-  this.password = await argon2.hash(this.password + process.env.PASSWORD_PEPPER, {
+  this.password = await argon2.hash(this.password + config.passwordPepper, {
     type: argon2.argon2id,
   });
 });
 
 userSchema.methods.comparePassword = async function (password) {
-  return await argon2.verify(this.password, password + process.env.PASSWORD_PEPPER);
+  return await argon2.verify(this.password, password + config.passwordPepper);
 };
 
 export const User = mongoose.model("User", userSchema);

@@ -1,3 +1,4 @@
+import config from "../../config/index.js";
 import { sendEmailVerificationMail } from "../../services/resend.service.js";
 
 export const sendEmail = async({to, template, name, token})=>{
@@ -5,6 +6,6 @@ export const sendEmail = async({to, template, name, token})=>{
       await sendEmailVerificationMail(
         name,
         to,
-        process.env.BASE_URL + `api/auth/verify-email/${token}`,
+        config.app.baseUrl + `api/auth/verify-email/${token}`,
       );
 }

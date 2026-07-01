@@ -1,8 +1,8 @@
 import IORedis from "ioredis";
 import logger from "../logger/index.js";
+import config from "./index.js";
 const options = {
-  host: process.env.REDIS_HOST,
-  port: Number(process.env.REDIS_PORT),
+  port: config.redis.port,
   retryStrategy: (times) => {
     if (times > 10) {
       logger.fatal("[redis] max reconnection attempts reached");
@@ -14,12 +14,8 @@ const options = {
   maxRetriesPerRequest: null,
 };
 
-if (process.env.REDIS_USERNAME) {
-  options.username = process.env.REDIS_USERNAME;
-}
-
-if (process.env.REDIS_PASSWORD) {
-  options.password = process.env.REDIS_PASSWORD;
+if (config.redis.password) {
+  options.password = config.redis.password;
 }
 const client = new IORedis(options);
 

@@ -1,7 +1,7 @@
 import {
   deviceIdCookieOptions,
   refreshTokenCookieOptions,
-} from "../config/config.js";
+} from "../config/cookieConfig.js";
 import {
   findUserByEmail,
   findUserById,
@@ -61,6 +61,7 @@ import {
   toAuthResponseDTO,
   toVerificationLinkResponseDTO,
 } from "../dto/auth.dto.js";
+import config from "../config/index.js";
 
 export const register_user = tryCatch(async (req, res, next) => {
   const { name, email, password } = req.body;
@@ -212,7 +213,7 @@ export const verifyEmail = tryCatch(async (req, res, next) => {
   notifyClient(user._id.toString(), "verified", {
     success: true,
   });
-  res.redirect(process.env.APP_URL + "/auth/email-verified");
+  res.redirect(config.app.frontendUrl + "/auth/email-verified");
 }, "verify Email");
 
 export const forgotPassword = tryCatch(async (req, res, next) => {
@@ -227,7 +228,7 @@ export const forgotPassword = tryCatch(async (req, res, next) => {
   }
   await sendpasswordResetMail(
     email,
-    process.env.APP_URL + `auth/change-password/${token}`,
+    config.app.frontendUrl + `auth/change-password/${token}`,
   );
   res.send(toAuthResponseDTO("Email sent successfully."));
 }, "forgot Password");

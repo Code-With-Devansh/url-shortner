@@ -12,9 +12,10 @@ import { cacheUrl } from "../cache/url.redis.js";
 import { encodeCursor } from "../schema/urlQuery.validator.js";
 import { ErrorCodes } from "../utils/errorCodes.js";
 import mongoose from "mongoose";
+import config from "../config/index.js";
 
-const USE_ATLAS_SEARCH = process.env.USE_ATLAS_SEARCH === "true";
-const APP_DOMAIN = new URL(process.env.BASE_URL).host;
+const USE_ATLAS_SEARCH = config.useAtlasSearch === "true";
+const APP_DOMAIN = new URL(config.app.baseUrl).host;
 
 const prepareSearchQuery = (rawQuery, domain) => {
   const pattern = new RegExp(

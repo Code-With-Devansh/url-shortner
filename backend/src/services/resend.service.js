@@ -1,7 +1,8 @@
 import { Resend } from 'resend';
 import { emailVerificationTemplate } from '../templates/EmailVerificationHtml.js';
+import config from '../config/index.js';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const resend = new Resend(config.email.resendApiKey);
 
 export const sendEmailVerificationMail = async (name, email, link) =>{
   const { data, error } = await resend.emails.send({

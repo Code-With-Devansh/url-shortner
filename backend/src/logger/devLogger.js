@@ -1,8 +1,9 @@
 import pino from "pino";
+import config from "../config";
 
 const logger = pino(
   {
-    level: process.env.LOG_LEVEL || "debug",
+    level: config.logging.level || "debug",
     timestamp: pino.stdTimeFunctions.isoTime,
     redact: {
       paths: ["req.headers.authorization", "*.password", "*.token"],

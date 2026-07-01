@@ -3,7 +3,8 @@ import { RedisStore } from "rate-limit-redis";
 import redis from "../config/redis.config.js";
 import { ipKeyGenerator } from "express-rate-limit";
 import { ErrorCodes } from "../utils/errorCodes.js";
-const skipInDev = () => process.env.NODE_ENV === "development";
+import config from "../config/index.js";
+const skipInDev = () => config.app.env === "development";
 const createStore = (prefix) =>
   new RedisStore({
     prefix,

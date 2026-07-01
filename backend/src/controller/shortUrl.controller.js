@@ -28,6 +28,7 @@ import {
 import { recordClick } from "../services/analytics.service.js";
 import { ErrorCodes } from "../utils/errorCodes.js";
 import logger from "../logger/index.js";
+import config from "../config/index.js";
 export const createShortUrl = tryCatch(async (req, res, next) => {
   const { url } = req.body;
   const validated = urlSchema
@@ -48,11 +49,11 @@ export const createShortUrl = tryCatch(async (req, res, next) => {
     }
     const id = await createShortUrlWithUserService(url, req.user._id, slug);
     await addUrlToBloom(id);
-    res.status(200).json(toCreateShortUrlDTO(process.env.BASE_URL, id, url));
+    res.status(200).json(toCreateShortUrlDTO(config.app.baseUrl, id, url));
   } else {
     const id = await createShortUrlwithoutUserService(url);
     await addUrlToBloom(id);
-    res.status(200).json(toCreateShortUrlDTO(process.env.BASE_URL, id, url));
+    res.status(200).json(toCreateShortUrlDTO(config.app.baseUrl, id, url));
   }
 }, "Create Short url");
 

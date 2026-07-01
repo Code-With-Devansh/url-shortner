@@ -5,7 +5,7 @@ import logger from "./src/logger/index.js";
 import { mongoConnection } from "./src/config/mongo.config.js";
 import { setShuttingDown } from "./state/shutdown.js";
 import { initGeo } from "./src/utils/geo.js";
-
+import config from "./src/config/index.js";
 let server;
 let isShuttingDown = false;
 
@@ -44,7 +44,7 @@ async function startServer() {
   try {
     await mongoConnection;
     const { default: app } = await import("./app.js");
-    const PORT = process.env.PORT || 5000;
+    const PORT = config.app.port || 5000;
 
     server = app.listen(PORT, () => {
       logger.info({ port: PORT }, "Server started");

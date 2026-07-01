@@ -1,5 +1,5 @@
 import { RefreshToken } from "../models/refreshToken.model.js";
-import { refreshTokenCookieOptions } from "../config/config.js";
+import { refreshTokenCookieOptions } from "../config/cookieConfig.js";
 import crypto from "crypto";
 
 function hashToken(token) {
