@@ -18,19 +18,7 @@
   var countEl    = document.getElementById('count');
   var beaconPill = document.getElementById('beacon-pill');
 
-  // async function recordClick() {
-  //   try {
-  //     await fetch('/api/clicks/' + SHORT_ID, {
-  //       method: 'POST',
-  //       keepalive: true
-  //     });
-  //     beaconPill.className   = 'beacon-pill sent';
-  //     beaconPill.textContent = '✓ click recorded';
-  //   } catch (e) {
-  //     beaconPill.className   = 'beacon-pill sent';
-  //     beaconPill.textContent = '! record failed';
-  //   }
-  // }
+
 
   function doRedirect() {
     if (cancelled) return;
