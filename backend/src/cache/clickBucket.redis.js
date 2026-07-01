@@ -1,9 +1,47 @@
 import redis from "../config/redis.config.js";
+import crypto from "crypto";
 
-export const liveHllKey = (urlId, date) => `analytics:${urlId}:${date}:visitors`;
+export const minuteBucketKey = (urlId, date, minute) =>
+  `analytics:${urlId}:${date}:${minute}`;
+
+export const hllKeyForBucket = (bucketKey) => `${bucketKey}:visitors`;
+
+export const minuteOf = (timestampMs = Date.now()) => {
+  const d = new Date(timestampMs);
+  const hh = d.getUTCHours().toString().padStart(2, "0");
+  const mm = d.getUTCMinutes().toString().padStart(2, "0");
+  return `${hh}:${mm}`;
+};
+
+export const isBucketDueForFlush = (date, minute, graceMs = 60_000) => {
+  const bucketWindowEnd = Date.parse(`${date}T${minute}:00.000Z`) + 60_000;
+  return Date.now() >= bucketWindowEnd + graceMs;
+};
+
+export const getActiveBucketKeysForDate = async (urlId, date) => {
+  const prefix = `analytics:${urlId}:${date}:`;
+  const active = await redis.smembers("analytics:active");
+  return active.filter((k) => k.startsWith(prefix) && !k.endsWith(":visitors"));
+};
+
+export const getActiveBucketKeysForUrls = async (urlIds, date) => {
+  const idSet = new Set(urlIds.map(String));
+  const active = await redis.smembers("analytics:active");
+  return active.filter((k) => {
+    if (k.endsWith(":visitors")) return false;
+    const parts = k.split(":");
+    // ["analytics", urlId, date, HH, MM] — date has no colons, so this is
+    // a fixed-position parse regardless of the minute's own colon.
+    if (parts.length < 5) return false;
+    const [, kUrlId, kDate] = parts;
+    return kDate === date && idSet.has(kUrlId);
+  });
+};
+
 export const hllArchiveKey = (urlId, date) => `analytics:hll:${urlId}:${date}`;
-export const archiveHllForDate = async (urlId, date, retentionSeconds) => {
-  const source = liveHllKey(urlId, date);
+
+export const archiveMinuteHll = async (urlId, date, minute, retentionSeconds) => {
+  const source = hllKeyForBucket(minuteBucketKey(urlId, date, minute));
   const exists = await redis.exists(source);
   if (!exists) return;
 

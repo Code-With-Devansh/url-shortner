@@ -14,20 +14,24 @@ export const saveClickBucket = async (
   hours,
   expireAt,
 ) => {
+  const inc = { total: totalClicks };
+  const addDimension = (name, counts) => {
+    for (const [key, count] of Object.entries(counts)) {
+      inc[`${name}.${key}`] = count;
+    }
+  };
+  addDimension("countries", countries);
+  addDimension("devices", devices);
+  addDimension("browsers", browsers);
+  addDimension("os", os);
+  addDimension("referers", referers);
+  addDimension("hours", hours);
+
   await ClickBucket.findOneAndUpdate(
     { url_id: urlId, date },
     {
-      $set: {
-        total: totalClicks,
-        uniqueVisitors,
-        countries,
-        devices,
-        browsers,
-        os,
-        referers,
-        hours,
-        expires_at: expireAt,
-      },
+      $inc: inc,
+      $set: { uniqueVisitors, expires_at: expireAt },
     },
     { upsert: true },
   );
@@ -38,7 +42,7 @@ export const saveClickBucket = async (
 export const getBucketsByUrl = async (urlId, since) => {
   const today = new Date().toISOString().split("T")[0];
   return ClickBucket.find(
-    { url_id: urlId, date: { $gte: since, $lt: today } }, 
+    { url_id: urlId, date: { $gte: since } }, 
     "-_id -__v",
   ).sort({ date: 1 }).lean();
 };

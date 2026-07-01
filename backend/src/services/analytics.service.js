@@ -124,16 +124,7 @@ export async function recordClick(urlId, ttlDays, req) {
 import redis from "../config/redis.config.js";
 import { ErrorCodes } from "../utils/errorCodes.js";
 
-async function getTodayBucketFromRedis(urlId) {
-  const date = new Date().toISOString().split("T")[0];
-  const key = `analytics:${urlId}:${date}`;
-  const hllKey = `analytics:${urlId}:${date}:visitors`;
-
-  const data = await redis.hgetall(key);
-  if (!data || Object.keys(data).length === 0) {
-    return null;
-  }
-
+async function aggregateBucketKeys(keys) {
   const countries = {};
   const devices = {};
   const browsers = {};
@@ -141,31 +132,46 @@ async function getTodayBucketFromRedis(urlId) {
   const referers = {};
   const hours = {};
   let total = 0;
+  const hllKeys = [];
 
-  for (const [field, value] of Object.entries(data)) {
-    const count = Number(value);
-    if (field === "total") total = count;
-    else if (field.startsWith("country:")) countries[field.slice(8)] = count;
-    else if (field.startsWith("device:")) devices[field.slice(7)] = count;
-    else if (field.startsWith("browser:")) browsers[field.slice(8)] = count;
-    else if (field.startsWith("os:")) os[field.slice(3)] = count;
-    else if (field.startsWith("referer:")) referers[field.slice(8)] = count;
-    else if (field.startsWith("hour:")) hours[field.slice(5)] = count;
+  for (const key of keys) {
+    const data = await redis.hgetall(key);
+    for (const [field, value] of Object.entries(data)) {
+      const count = Number(value);
+      if (field === "total") total += count;
+      else if (field.startsWith("country:")) countries[field.slice(8)] = (countries[field.slice(8)] || 0) + count;
+      else if (field.startsWith("device:")) devices[field.slice(7)] = (devices[field.slice(7)] || 0) + count;
+      else if (field.startsWith("browser:")) browsers[field.slice(8)] = (browsers[field.slice(8)] || 0) + count;
+      else if (field.startsWith("os:")) os[field.slice(3)] = (os[field.slice(3)] || 0) + count;
+      else if (field.startsWith("referer:")) referers[field.slice(8)] = (referers[field.slice(8)] || 0) + count;
+      else if (field.startsWith("hour:")) hours[field.slice(5)] = (hours[field.slice(5)] || 0) + count;
+    }
+    hllKeys.push(hllKeyForBucket(key));
   }
 
-  const uniqueVisitors = await redis.pfcount(hllKey);
-  return {
-    date,
-    total,
-    uniqueVisitors,
-    countries,
-    devices,
-    browsers,
-    os,
-    referers,
-    hours,
-  };
+  return { total, countries, devices, browsers, os, referers, hours, hllKeys };
 }
+
+async function getLiveBucketForToday(urlId) {
+  const date = new Date().toISOString().split("T")[0];
+  const keys = await getActiveBucketKeysForDate(urlId, date);
+  if (keys.length === 0) return null;
+
+  const live = await aggregateBucketKeys(keys);
+  if (live.total === 0 && live.hllKeys.length === 0) return null;
+
+  return { date, ...live };
+}
+
+async function getLiveBucketForUrlsToday(urlIds) {
+  const date = new Date().toISOString().split("T")[0];
+  const keys = await getActiveBucketKeysForUrls(urlIds, date);
+  if (keys.length === 0) return { date, total: 0, hllKeys: [] };
+
+  const live = await aggregateBucketKeys(keys);
+  return { date, ...live };
+}
+
 
 // per url
 export const getUrlAnalyticsSummary = async (urlId, userId, range) => {
@@ -242,20 +248,27 @@ export const getOverallAnalyticsSummary = async (userId, range) => {
     }
 
     const since = sinceDate(rangeKey);
-    const [buckets, topUrls] = await Promise.all([
+    const [buckets, topUrls, liveToday] = await Promise.all([
       getBucketsByUrls(urlIds, since),
       getTopUrlsForUser(urlIds, since, 1),
+      getLiveBucketForUrlsToday(urlIds),
     ]);
     const { summary } = mergeBuckets(buckets);
 
+    const hllKeys = buckets
+      .map((b) => hllArchiveKey(b.url_id, b.date))
+      .concat(liveToday.hllKeys);
+    const uniqueVisitors = await mergeUniqueVisitors(hllKeys);
+
     return {
-      total: summary.total,
-      uniqueVisitors: summary.uniqueVisitors,
+      total: summary.total + liveToday.total,
+      uniqueVisitors,
       range: rangeKey,
       topUrl: topUrls[0] || null,
     };
   });
 };
+
 
 export const getOverallAnalyticsTimeseries = async (userId, range) => {
   const rangeKey = validateRange(range);
@@ -265,24 +278,34 @@ export const getOverallAnalyticsTimeseries = async (userId, range) => {
     if (urlIds.length === 0) return [];
 
     const since = sinceDate(rangeKey);
-    const buckets = await getBucketsByUrls(urlIds, since);
+    const [buckets, liveToday] = await Promise.all([
+      getBucketsByUrls(urlIds, since),
+      getLiveBucketForUrlsToday(urlIds),
+    ]);
 
-    // Overall timeseries needs to merge multiple URLs' buckets sharing the
-    // same date into a single point per day — mergeBuckets() above produces
-    // one entry per bucket doc, which is correct for per-URL (1 bucket/day)
-    // but wrong here (N buckets/day, one per URL). Re-group by date:
     const byDate = new Map();
     for (const bucket of buckets) {
       const entry = byDate.get(bucket.date) || {
         date: bucket.date,
         total: 0,
-        uniqueVisitors: 0,
+        hllKeys: [],
       };
       entry.total += bucket.total || 0;
-      entry.uniqueVisitors += bucket.uniqueVisitors || 0; // upper bound, see caveat
+      entry.hllKeys.push(hllArchiveKey(bucket.url_id, bucket.date));
       byDate.set(bucket.date, entry);
     }
-const days = [...byDate.values()].sort((a, b) =>
+    if (liveToday.total > 0 || liveToday.hllKeys.length > 0) {
+      const todayEntry = byDate.get(liveToday.date) || {
+        date: liveToday.date,
+        total: 0,
+        hllKeys: [],
+      };
+      todayEntry.total += liveToday.total;
+      todayEntry.hllKeys.push(...liveToday.hllKeys);
+      byDate.set(liveToday.date, todayEntry);
+    }
+
+    const days = [...byDate.values()].sort((a, b) =>
       a.date.localeCompare(b.date),
     );
 

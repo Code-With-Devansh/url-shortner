@@ -25,9 +25,13 @@ import {
   generateAndStorePasswordResetToken,
   generateAndStoreVerificationToken,
   loginUser,
+  logoutUser,
   queueEmailVerification,
+  refreshAccessTokenService,
   registerUser,
+  sendVerificationLinkService,
   storeSessionToken,
+  verifyEmailService,
   verifySessionToken,
 } from "../services/auth.service.js";
 import {
@@ -137,27 +141,8 @@ export const refreshAccessToken = tryCatch(async (req, res, next) => {
     userAgent: req.headers["user-agent"]?.slice(0, 200) ?? "Unknown",
     lastSeen: new Date(),
   };
-  const data = await verifyRefreshToken(refreshToken);
-  const userId = data.userId;
-  const stored = await checkIfRefreshTokenExists(
-    userId,
-    refreshToken,
-    deviceId,
-  );
-  if (!stored) {
-    await delAllCachedRefreshTokens(userId);
-    await delAllRefreshTokens(userId);
-    throw new UnauthorizedError(
-      "Session expired. Please login again.",
-      ErrorCodes.AUTH_SESSION_EXPIRED,
-    );
-  }
-  await delCachedRefreshToken(userId, deviceId);
-  await delRefreshToken(userId, deviceId);
-  const newAccessToken = await generateAccessToken(userId);
-  const newRefreshToken = await generateRefreshToken(userId);
-  await cacheRefreshToken(userId, newRefreshToken, deviceId);
-  await saveRefreshToken(userId, newRefreshToken, deviceInfo);
+  const {newAccessToken, newrefreshToken} = await refreshAccessTokenService(refreshToken, deviceId, deviceInfo)
+  
   res.cookie("refreshToken", newRefreshToken, refreshTokenCookieOptions);
   res.json({
     success: true,
@@ -174,11 +159,7 @@ export const logout_user = tryCatch(async (req, res, next) => {
   if (!refreshToken || !deviceId) {
     return res.json(toAuthResponseDTO("Already logged out"));
   }
-  const data = await verifyRefreshToken(refreshToken).catch(() => null);
-  if (data) {
-    await delCachedRefreshToken(data.userId, deviceId);
-    await delRefreshToken(data.userId, deviceId);
-  }
+  await logoutUser(refreshToken, deviceId);
   res.clearCookie("refreshToken", refreshTokenCookieOptions);
   res.json(toAuthResponseDTO("Logout successfully"));
 }, "logout");
@@ -189,30 +170,13 @@ export const sendVerificationLink = tryCatch(async (req, res, next) => {
   if (!validated.success) {
     throw new ValidationError(generateValidationErrors(validated));
   }
-  const sessionToken = generateRandomToken();
-  const user = await findUserByEmail(email);
-  if (!user || user.isVerified) {
-    return res.json(toVerificationLinkResponseDTO(sessionToken));
-  }
-  await storeSessionToken(user, sessionToken);
-  await queueEmailVerification(user);
+  const sessionToken = await sendVerificationLinkService(email);
   res.send(toAuthResponseDTO("Verification Link Sent", sessionToken));
 }, "Send verification Link");
 
 export const verifyEmail = tryCatch(async (req, res, next) => {
   const { token } = req.params;
-  const user = await verifyEmailVerificationToken(token);
-  if (!user) {
-    throw new ValidationError(
-      { token: "Invalid Token" },
-      ErrorCodes.AUTH_EMAIL_VERIFICATION_FAILED,
-    );
-  }
-  const userId = user._id.toString();
-  await setEmailVerified(user);
-  notifyClient(user._id.toString(), "verified", {
-    success: true,
-  });
+  await verifyEmailService(token);
   res.redirect(config.app.frontendUrl + "/auth/email-verified");
 }, "verify Email");
 
