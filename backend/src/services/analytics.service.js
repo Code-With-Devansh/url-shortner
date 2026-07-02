@@ -10,7 +10,7 @@ import { findShortUrlByIdForUser } from "../dao/shortUrl.js";
 import { NotFoundError, ValidationError } from "../utils/appError.js";
 import { analyticsCacheKey } from "../utils/cacheKeys.js";
 import { withCache } from "../utils/withCache.js";
-import {getActiveBucketKeysForDate, getActiveBucketKeysForUrls, hllArchiveKey, mergeUniqueVisitors} from '../cache/clickBucket.redis.js'
+import {getActiveBucketKeysForDate, getActiveBucketKeysForUrls, hllArchiveKey, hllKeyForBucket, mergeUniqueVisitors} from '../cache/clickBucket.redis.js'
 
 const TTL = {
   summary: 30,
