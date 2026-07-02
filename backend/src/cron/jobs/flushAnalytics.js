@@ -2,23 +2,22 @@ import { saveClickBucket } from "../../dao/clickBucket.dao.js";
 import redis from "../../config/redis.config.js";
 import { invalidateAnalyticsCache } from "../../utils/cacheKeys.js";
 import {
-  archiveHllForDate,
+  archiveMinuteHll,
   hllArchiveKey,
   isBucketDueForFlush,
 } from "../../cache/clickBucket.redis.js";
-
 const RETENTION_DAYS = 90;
 const RETENTION_SECONDS = RETENTION_DAYS * 86400;
 
 export async function flushAnalyticsKey(key) {
   const [, urlId, date, hh, mm] = key.split(":");
   const minute = `${hh}:${mm}`;
-
   if (!isBucketDueForFlush(date, minute)) return;
+
   const data = await redis.hgetall(key);
 
   if (!data || Object.keys(data).length === 0) {
-    await redis.srem("analytics:active", key); // clean up the set too
+    await redis.srem("analytics:active", key); 
     return;
   }
 
@@ -41,7 +40,7 @@ export async function flushAnalyticsKey(key) {
     else if (field.startsWith("hour:")) hours[field.slice(5)] = count;
   }
 
-  await archiveHllForDate(urlId, date, RETENTION_SECONDS);
+  await archiveMinuteHll(urlId, date, minute, RETENTION_SECONDS);
   const archiveKey = hllArchiveKey(urlId, date);
   const uniqueVisitors = (await redis.exists(archiveKey))
     ? await redis.pfcount(archiveKey)
@@ -62,7 +61,7 @@ export async function flushAnalyticsKey(key) {
     expireAt,
   );
 
-  await redis.del(key, hllKey);
+  await redis.del(key);
   await redis.srem("analytics:active", key);
 
   await invalidateAnalyticsCache(urlId);
