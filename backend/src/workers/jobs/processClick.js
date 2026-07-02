@@ -1,7 +1,6 @@
 import { UAParser } from "ua-parser-js";
 import crypto from "crypto";
 import { saveClickToRedis, minuteOf } from "../../cache/clickBucket.redis.js";
-import { incrementClickCountToRedis } from "../../cache/clicks.redis.js";
 export const processClick = async (data) => {
   const { urlId, ip, userAgent, referer, timestamp } = data;
   const ua = new UAParser(userAgent).getResult();
