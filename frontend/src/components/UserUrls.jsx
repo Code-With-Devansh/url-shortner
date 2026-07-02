@@ -1,6 +1,7 @@
 import React, { useState, useRef, useCallback, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useInfiniteQuery, useMutation } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { deleteUrl } from "../api/shortUrl.api";
 import { getUrls } from "../api/user.api";
 
@@ -37,9 +38,13 @@ const UrlRow = React.memo(({ url, onCopy, onDelete, copied }) => {
   return (
     <div className="px-7 py-4 flex flex-col sm:flex-row sm:items-center gap-3 hover:bg-zinc-800/30 transition-colors duration-150 group">
       {/* Short URL + original */}
-      <div className="flex-1 min-w-0">
+      <Link
+        to="/dashboard/urls/$id"
+        params={{ id: url.id }}
+        className="flex-1 min-w-0 no-underline group/link"
+      >
         <div className="flex items-center gap-2 mb-1 flex-wrap">
-          <span className="text-lime-400 text-sm font-medium tracking-wide font-mono">
+          <span className="text-lime-400 text-sm font-medium tracking-wide font-mono group-hover/link:underline">
             {url.short_url}
           </span>
           <span className="text-[9px] tracking-widest uppercase text-zinc-600 border border-zinc-800 rounded px-1.5 py-0.5">
@@ -50,10 +55,9 @@ const UrlRow = React.memo(({ url, onCopy, onDelete, copied }) => {
               inactive
             </span>
           )}
-          
         </div>
         <p className="text-xs text-zinc-600 truncate">{url.full_url}</p>
-      </div>
+      </Link>
 
       {/* Created */}
       <span className="hidden sm:block text-[10px] tracking-wider text-zinc-700 shrink-0 tabular-nums">

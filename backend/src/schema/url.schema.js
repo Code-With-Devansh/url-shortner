@@ -13,8 +13,8 @@ import { z } from "zod";
     .max(50, {
       message: "Slug cannot exceed 50 characters",
     })
-    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, {
-      message: "Custom Urls can only contain lowercase letters, numbers, and hyphens",
+    .regex(/^[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*$/, {
+      message: "Custom Urls can only contain letters, numbers, and hyphens",
     }),
 });
 

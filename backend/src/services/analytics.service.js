@@ -10,6 +10,7 @@ import { findShortUrlByIdForUser } from "../dao/shortUrl.js";
 import { NotFoundError, ValidationError } from "../utils/appError.js";
 import { analyticsCacheKey } from "../utils/cacheKeys.js";
 import { withCache } from "../utils/withCache.js";
+import {getActiveBucketKeysForDate, getActiveBucketKeysForUrls, hllArchiveKey, mergeUniqueVisitors} from '../cache/clickBucket.redis.js'
 
 const TTL = {
   summary: 30,
@@ -184,10 +185,15 @@ export const getUrlAnalyticsSummary = async (urlId, userId, range) => {
   return withCache(key, TTL.summary, async () => {
     const since = sinceDate(rangeKey);
     const mongoBuckets = await getBucketsByUrl(urlId, since);
-    const todayBucket = await getTodayBucketFromRedis(urlId);
+    const todayBucket = await getLiveBucketForToday(urlId);
     const allBuckets = todayBucket ? [...mongoBuckets, todayBucket] : mongoBuckets;
 
     const { summary } = mergeBuckets(allBuckets);
+    const hllKeys = mongoBuckets.map((b) => hllArchiveKey(urlId, b.date));
+    if (todayBucket) {
+      hllKeys.push(...todayBucket.hllKeys);
+    }
+    const uniqueVisitors = await mergeUniqueVisitors(hllKeys);
 
     return {
       urlId,
@@ -195,7 +201,7 @@ export const getUrlAnalyticsSummary = async (urlId, userId, range) => {
       fullUrl: url.full_url,
       range: rangeKey,
       total: summary.total,
-      uniqueVisitors: summary.uniqueVisitors,
+      uniqueVisitors,
     };
   });
 };

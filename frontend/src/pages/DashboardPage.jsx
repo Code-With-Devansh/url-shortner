@@ -1,42 +1,48 @@
-import { QueryClient, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
-import { getUrls } from "../api/user.api";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import StatCard from "../components/StatCard";
 import { useSelector } from "react-redux";
 import UserUrls from "../components/UserUrls";
 import { createShortUrl } from "../api/shortUrl.api";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate, Link } from "@tanstack/react-router";
 import urlSchema from "../schema/url.schema.js";
+import { getOverallSummary, getOverallTimeseries } from "../api/analytics.api";
+import TimeseriesChart from "../components/analytics/TimeseriesChart";
 
 export default function DashboardPage() {
   const BASE_URL = import.meta.env.VITE_API_URL;
   const [form, setForm] = useState({ full_url: "", short_url: "" });
   const [formError, setFormError] = useState("");
   const [loading, setLoading] = useState(false);
-  const Navigate = useNavigate();
-  const url = [
-    {
-      id: "6a21c4630bc4b77698b0fe6f",
-      full_url: "https://claude.ai/chat/172b88f2-277a-4217-92cf-faaa74e23cf4",
-      short_url: "http://localhost:5000/XC4Fr6Y",
-      clicks: 0,
-      createdAt: "2026-06-04T18:30:59.781Z",
-    },
-  ];
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const auth = useSelector((state) => state.auth);
+
+  // Quick analytics — fixed 7-day window, full detail lives on /analytics
+  const { data: summary, isLoading: summaryLoading } = useQuery({
+    queryKey: ["analytics", "summary", "7d"],
+    queryFn: () => getOverallSummary("7d"),
+    enabled: !!auth.user,
+    staleTime: 30_000,
+  });
+
+  const { data: timeseries, isLoading: timeseriesLoading } = useQuery({
+    queryKey: ["analytics", "timeseries", "7d"],
+    queryFn: () => getOverallTimeseries("7d"),
+    enabled: !!auth.user,
+    staleTime: 30_000,
+  });
+
   const handleCreate = async () => {
     if (!auth.user) {
-      Navigate({
-        to: "/auth",
-      });
+      navigate({ to: "/auth" });
       return;
     }
     try {
       if (form.short_url == "") {
-        const validationResult = urlSchema.pick({ full_url: true }).parse(form);
+        urlSchema.pick({ full_url: true }).parse(form);
       } else {
-        const validationResult = urlSchema.parse(form);
+        urlSchema.parse(form);
       }
       setLoading(true);
       const newShortUrl = await createShortUrl(
@@ -45,26 +51,19 @@ export default function DashboardPage() {
         form.short_url,
       );
       if (newShortUrl) {
-        await queryClient.invalidateQueries({
-          queryKey: ["urls"],
-        });
+        await queryClient.invalidateQueries({ queryKey: ["urls"] });
+        await queryClient.invalidateQueries({ queryKey: ["analytics"] });
         setForm({ full_url: "", short_url: "" });
       }
     } catch (err) {
-      setFormError(err.message);
+      setFormError(err?.errors?.[0]?.message ?? err.message);
     } finally {
       setLoading(false);
     }
   };
-  useEffect(() => {
-    if (!auth.user || !auth.user.isVerified) {
-      Navigate({
-        to: "/auth",
-      });
-    }
-  }, [auth.user]);
+
   return (
-    <div className="min-h-screen  bg-zinc-950 text-zinc-100 font-mono">
+    <div className="min-h-screen bg-zinc-950 text-zinc-100 font-mono">
       <div className="pointer-events-none fixed top-0 left-1/2 -translate-x-1/2 w-[600px] h-[400px] bg-lime-400/5 rounded-full blur-3xl" />
 
       <div className="relative z-10 max-w-5xl mx-auto px-5 py-10">
@@ -81,38 +80,50 @@ export default function DashboardPage() {
           </p>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
-          <StatCard label="Total Links" value={url?.length || 0} icon="🔗" />
-          <StatCard
-            label="Total Visits"
-            value={url?.reduce((a, u) => a + u.clicks, 0) || 0}
-            icon="👁"
-          />
-          <StatCard
-            label="Top Link"
-            value={
-              url && url.length > 0
-                ? (BASE_URL +
-                    [...(url || [])].sort((a, b) => b.clicks - a.clicks)[0]
-                      ?.short_url ?? "—")
-                : "-"
-            }
-            icon="🏆"
-            link={true}
-            mono
-          />
-          <StatCard
-            link={true}
-            label="Newest"
-            value={
-              url && url.length > 0
-                ? (BASE_URL + url?.[0]?.short_url ?? "—")
-                : "-"
-            }
-            icon="✨"
-            mono
-          />
+        {/* Quick analytics strip */}
+        <div className="relative bg-zinc-900 border border-zinc-800 rounded overflow-hidden mb-6">
+          <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-zinc-700" />
+          <div className="px-7 py-6">
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-[10px] tracking-[0.2em] uppercase text-zinc-500">
+                Last 7 Days
+              </p>
+              <Link
+                to="/analytics"
+                className="text-[9px] tracking-widest uppercase text-lime-400 hover:underline no-underline"
+              >
+                View Full Analytics →
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-5">
+              <StatCard
+                label="Total Clicks"
+                value={summaryLoading ? "—" : (summary?.total ?? 0)}
+                icon="🔗"
+              />
+              <StatCard
+                label="Unique Visitors"
+                value={summaryLoading ? "—" : (summary?.uniqueVisitors ?? 0)}
+                icon="👁"
+              />
+              <StatCard
+                label="Avg. Clicks / Day"
+                value={
+                  summaryLoading
+                    ? "—"
+                    : Math.round(((summary?.total ?? 0) / 7) * 10) / 10
+                }
+                icon="📈"
+              />
+            </div>
+
+            {timeseriesLoading ? (
+              <div className="h-32 bg-zinc-800/30 rounded animate-pulse" />
+            ) : (
+              <TimeseriesChart data={timeseries ?? []} height={140} />
+            )}
+          </div>
         </div>
 
         {/* Create section */}

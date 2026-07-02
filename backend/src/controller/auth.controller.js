@@ -141,7 +141,7 @@ export const refreshAccessToken = tryCatch(async (req, res, next) => {
     userAgent: req.headers["user-agent"]?.slice(0, 200) ?? "Unknown",
     lastSeen: new Date(),
   };
-  const {newAccessToken, newrefreshToken} = await refreshAccessTokenService(refreshToken, deviceId, deviceInfo)
+  const {newAccessToken, newRefreshToken} = await refreshAccessTokenService(refreshToken, deviceId, deviceInfo)
   
   res.cookie("refreshToken", newRefreshToken, refreshTokenCookieOptions);
   res.json({

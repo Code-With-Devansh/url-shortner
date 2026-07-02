@@ -1,14 +1,7 @@
 
-0. now also analytics worker is a cron ran at 3 am everyday. to save click bucket to db one call a day. to get the analytics of today. i want to not query the db instead get data from the redis. is my thinking going right. any possible tradeoffs? or failures during production ref: http://localhost:5000/cron
--------!!!----overall summary dont contain the today record. need to run cron every 5 min lets think  	
-
 0.4 get country for analytics. device not setting up in analytics.
 
 
-0. should i add circuit breakers? A circuit breaker around Mongo/Redis lets the service fail fast until dependencies recover.
-2. add terms and policy
-8. CI/CD
-9. monitoring
 15. visual issues with the font and font color
 
 bugs:

@@ -26,30 +26,53 @@ const prepareSearchQuery = (rawQuery, domain) => {
   return stripped.length > 0 ? stripped : rawQuery;
 };
 
-
 export const createShortUrlwithoutUserService = async (url) => {
-  const id = await generateShortUrl();
-  if (!id) {
-    throw new Error("Failed to generate short URL", 500);
+  const MAX_RETRIES = 20;
+
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    const id = await generateShortUrl();
+    try {
+      const shortUrl = await saveShortUrl(url, id);
+      await cacheUrl(id, {
+        id: shortUrl._id,
+        full_url: url,
+        isActive: true,
+      });
+      return id;
+    } catch (err) {
+      if (err.code === "URL_SLUG_TAKEN") continue;
+      throw err;
+    }
   }
-  const shortUrl = await saveShortUrl(url, id);
-  await cacheUrl(id, { id: shortUrl._id, full_url: url, isActive: true });
-  return id;
+
+  throw new AppError("Failed to generate short URL", 500);
 };
 export const createShortUrlWithUserService = async (
   url,
   userId,
   slug = null,
 ) => {
-  const id = slug && slug.length > 0 ? slug : await generateShortUrl();
-  const exists = await findShortUrlbySlug(id);
-  if (exists) {
-    throw new conflictError(
-      "Custom short URL already exists",
-      ErrorCodes.URL_SLUG_TAKEN,
-    );
+  let shortUrl;
+  let id;
+  if (slug && slug.length > 0) {
+    id = slug;
+    shortUrl = await saveShortUrl(url, id, userId);
+  } else {
+    const MAX_RETRIES = 20;
+
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      id = await generateShortUrl();
+      try {
+        shortUrl = await saveShortUrl(url, id, userId);
+        return id;
+      } catch (err) {
+        if (err.code === "URL_SLUG_TAKEN") continue;
+        throw err;
+      }
+    }
+
+    throw new AppError("Failed to generate short URL", 500);
   }
-  const shortUrl = await saveShortUrl(url, id, userId);
   await cacheUrl(id, { id: shortUrl._id, full_url: url, isActive: true });
   return id;
 };
