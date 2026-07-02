@@ -11,6 +11,8 @@ import {
 import RangeTabs from "../components/analytics/RangeTabs";
 import TimeseriesChart from "../components/analytics/TimeseriesChart";
 import BreakdownChart from "../components/analytics/BreakdownChart";
+import StatCard from "../components/StatCard";
+import { Link2, Eye, TrendingUp, Trophy, Search } from "lucide-react";
 import { useEffect } from "react";
 
 const RANGE_DAYS = { "7d": 7, "30d": 30, "90d": 90 };
@@ -83,7 +85,7 @@ export default function AnalyticsPage() {
             >
               Analytics
             </h2>
-            <p className="mt-1 text-xs text-zinc-500 tracking-wider">
+            <p className="mt-1 text-xs text-zinc-400 tracking-wider">
               Performance across every link in your account.
             </p>
           </div>
@@ -92,57 +94,30 @@ export default function AnalyticsPage() {
 
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+          <StatCard
+            label="Total Clicks"
+            value={summaryLoading ? "—" : (summary?.total ?? 0)}
+            icon={Link2}
+          />
+          <StatCard
+            label="Unique Visitors"
+            value={summaryLoading ? "—" : (summary?.uniqueVisitors ?? 0)}
+            icon={Eye}
+          />
+          <StatCard
+            label="Avg. Clicks / Day"
+            value={summaryLoading ? "—" : avgDaily}
+            icon={TrendingUp}
+          />
           <div className="bg-zinc-900 border border-zinc-800 rounded px-5 py-4">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[9px] tracking-[0.2em] uppercase text-zinc-600">
-                Total Clicks
-              </span>
-              <span className="text-base">🔗</span>
-            </div>
-            <p
-              className="text-xl font-bold text-zinc-100"
-              style={{ fontFamily: "'Syne', sans-serif" }}
-            >
-              {summaryLoading ? "—" : (summary?.total ?? 0)}
-            </p>
-          </div>
-          <div className="bg-zinc-900 border border-zinc-800 rounded px-5 py-4">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[9px] tracking-[0.2em] uppercase text-zinc-600">
-                Unique Visitors
-              </span>
-              <span className="text-base">👁</span>
-            </div>
-            <p
-              className="text-xl font-bold text-zinc-100"
-              style={{ fontFamily: "'Syne', sans-serif" }}
-            >
-              {summaryLoading ? "—" : (summary?.uniqueVisitors ?? 0)}
-            </p>
-          </div>
-          <div className="bg-zinc-900 border border-zinc-800 rounded px-5 py-4">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[9px] tracking-[0.2em] uppercase text-zinc-600">
-                Avg. Clicks / Day
-              </span>
-              <span className="text-base">📈</span>
-            </div>
-            <p
-              className="text-xl font-bold text-zinc-100"
-              style={{ fontFamily: "'Syne', sans-serif" }}
-            >
-              {summaryLoading ? "—" : avgDaily}
-            </p>
-          </div>
-          <div className="bg-zinc-900 border border-zinc-800 rounded px-5 py-4">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[9px] tracking-[0.2em] uppercase text-zinc-600">
+            <div className="flex items-center justify-between mb-2.5">
+              <span className="text-[9px] tracking-[0.2em] uppercase text-zinc-400">
                 Top Link
               </span>
-              <span className="text-base">🏆</span>
+              <Trophy size={14} strokeWidth={2} className="text-lime-400/80 shrink-0" />
             </div>
             {leaderboardLoading ? (
-              <p className="text-xl font-bold text-zinc-100">—</p>
+              <p className="font-mono text-2xl font-bold text-zinc-100">—</p>
             ) : topLink ? (
               <Link
                 to="/dashboard/urls/$id"
@@ -152,7 +127,7 @@ export default function AnalyticsPage() {
                 {topLink.shortUrl}
               </Link>
             ) : (
-              <p className="text-xl font-bold text-zinc-100">—</p>
+              <p className="font-mono text-2xl font-bold text-zinc-100">—</p>
             )}
           </div>
         </div>
@@ -161,7 +136,7 @@ export default function AnalyticsPage() {
         <div className="relative bg-zinc-900 border border-zinc-800 rounded overflow-hidden mb-6">
           <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-zinc-700" />
           <div className="px-7 py-6">
-            <p className="text-[10px] tracking-[0.2em] uppercase text-zinc-500 mb-4">
+            <p className="text-[10px] tracking-[0.2em] uppercase text-zinc-400 mb-4">
               Clicks over time
             </p>
             {timeseriesLoading ? (
@@ -176,7 +151,7 @@ export default function AnalyticsPage() {
         <div className="relative bg-zinc-900 border border-zinc-800 rounded overflow-hidden mb-6">
           <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-lime-400" />
           <div className="px-7 py-6">
-            <p className="text-[10px] tracking-[0.2em] uppercase text-zinc-500 mb-4">
+            <p className="text-[10px] tracking-[0.2em] uppercase text-zinc-400 mb-4">
               Breakdown
             </p>
             <div className="flex flex-wrap gap-1.5 mb-5">
@@ -187,7 +162,7 @@ export default function AnalyticsPage() {
                   className={`text-[9px] tracking-widest uppercase rounded px-2.5 py-1 border transition-all duration-150 cursor-pointer ${
                     breakdownBy === tab.value
                       ? "border-lime-400/60 text-lime-400 bg-lime-400/10"
-                      : "border-zinc-800 text-zinc-600 hover:border-zinc-600 hover:text-zinc-400"
+                      : "border-zinc-800 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200"
                   }`}
                 >
                   {tab.label}
@@ -206,7 +181,7 @@ export default function AnalyticsPage() {
         <div className="relative bg-zinc-900 border border-zinc-800 rounded overflow-hidden mb-6">
           <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-zinc-700" />
           <div className="px-7 py-5">
-            <p className="text-[10px] tracking-[0.2em] uppercase text-zinc-500 mb-4">
+            <p className="text-[10px] tracking-[0.2em] uppercase text-zinc-400 mb-4">
               Top Performing Links
             </p>
             {leaderboardLoading ? (
@@ -227,25 +202,25 @@ export default function AnalyticsPage() {
                     params={{ id: l.urlId }}
                     className="flex items-center gap-3 py-3 no-underline group"
                   >
-                    <span className="text-[10px] text-zinc-700 tabular-nums w-4 shrink-0">
+                    <span className="text-[10px] text-zinc-500 tabular-nums w-4 shrink-0">
                       {String(i + 1).padStart(2, "0")}
                     </span>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm text-lime-400 truncate group-hover:underline">
                         {l.shortUrl}
                       </p>
-                      <p className="text-[11px] text-zinc-600 truncate">
+                      <p className="text-[11px] text-zinc-400 truncate">
                         {l.fullUrl}
                       </p>
                     </div>
-                    <span className="text-[10px] tracking-widest uppercase text-zinc-500 border border-zinc-800 rounded px-2 py-1 shrink-0">
+                    <span className="text-[10px] tracking-widest uppercase text-zinc-400 border border-zinc-800 rounded px-2 py-1 shrink-0">
                       {l.clicks} clicks
                     </span>
                   </Link>
                 ))}
               </div>
             ) : (
-              <p className="text-[10px] tracking-widest uppercase text-zinc-700 py-8 text-center">
+              <p className="text-[10px] tracking-widest uppercase text-zinc-500 py-8 text-center">
                 No links yet — create one from the Dashboard
               </p>
             )}

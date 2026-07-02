@@ -54,7 +54,7 @@ export default function ForgotPassword() {
                   <h2 className="text-lg font-extrabold text-zinc-100 tracking-tight" style={{ fontFamily: "'Syne', sans-serif" }}>
                     Forgot password?
                   </h2>
-                  <p className="mt-1.5 text-xs text-zinc-500 tracking-wide leading-relaxed">
+                  <p className="mt-1.5 text-xs text-zinc-400 tracking-wide leading-relaxed">
                     No worries. Enter your email and we'll send you a reset link.
                   </p>
                 </div>
@@ -63,7 +63,7 @@ export default function ForgotPassword() {
 
                 {/* Email input */}
                 <div>
-                  <label className="block text-[10px] tracking-[0.2em] uppercase text-zinc-500 mb-2">
+                  <label className="block text-[10px] tracking-[0.2em] uppercase text-zinc-400 mb-2">
                     Email address
                   </label>
                   <input
@@ -94,7 +94,7 @@ export default function ForgotPassword() {
                 {/* Back */}
                 <Link
                   to="/login"
-                  className="text-center text-[11px] tracking-widest uppercase text-zinc-600 hover:text-zinc-400 transition-colors duration-200 no-underline"
+                  className="text-center text-[11px] tracking-widest uppercase text-zinc-400 hover:text-zinc-200 transition-colors duration-200 no-underline"
                 >
                   ← Back to sign in
                 </Link>
@@ -119,7 +119,7 @@ export default function ForgotPassword() {
                   <h2 className="text-lg font-extrabold text-zinc-100 tracking-tight" style={{ fontFamily: "'Syne', sans-serif" }}>
                     Check your inbox
                   </h2>
-                  <p className="mt-2 text-xs text-zinc-500 leading-relaxed tracking-wide">
+                  <p className="mt-2 text-xs text-zinc-400 leading-relaxed tracking-wide">
                     We sent a password reset link to
                   </p>
                   <p className="mt-1 text-sm text-lime-400 font-medium">{email}</p>
@@ -135,7 +135,7 @@ export default function ForgotPassword() {
                       <span className="shrink-0 w-5 h-5 rounded-full bg-lime-400/10 border border-lime-400/20 text-lime-400 text-[10px] font-bold flex items-center justify-center mt-0.5">
                         {i + 1}
                       </span>
-                      <span className="text-[11px] tracking-wide text-zinc-500 leading-relaxed">{step}</span>
+                      <span className="text-[11px] tracking-wide text-zinc-400 leading-relaxed">{step}</span>
                     </div>
                   ))}
                 </div>
@@ -149,13 +149,13 @@ export default function ForgotPassword() {
                   </button>
                   <Link
                     to="/login"
-                    className="text-center text-[11px] tracking-widest uppercase text-zinc-600 hover:text-zinc-400 transition-colors duration-200 py-1 no-underline"
+                    className="text-center text-[11px] tracking-widest uppercase text-zinc-400 hover:text-zinc-200 transition-colors duration-200 py-1 no-underline"
                   >
                     ← Back to sign in
                   </Link>
                 </div>
 
-                <p className="text-[10px] tracking-wider text-zinc-700">
+                <p className="text-[10px] tracking-wider text-zinc-500">
                   Didn't get it? Check your spam folder.
                 </p>
 

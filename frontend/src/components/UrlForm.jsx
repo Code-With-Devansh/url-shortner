@@ -9,7 +9,7 @@ const UrlForm = ({handleShorten, url, setUrl, error, setError, loading, setLoadi
 
   return (
                 <form onSubmit={(e) => { e.preventDefault(); handleShorten(); }}>
-              <label className="block text-[10px] tracking-[0.2em] uppercase text-zinc-500 mb-2.5">
+              <label className="block text-[10px] tracking-[0.2em] uppercase text-zinc-400 mb-2.5">
                 Your Long URL
               </label>
 

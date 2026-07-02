@@ -61,7 +61,7 @@ const LoadingState = () => (
 );
 
 const EmptyState = ({ by }) => (
-  <p className="text-[10px] tracking-widest uppercase text-zinc-700 py-10 text-center">
+  <p className="text-[10px] tracking-widest uppercase text-zinc-500 py-10 text-center">
     No {LABELS[by]?.toLowerCase() || "data"} recorded yet
   </p>
 );
@@ -87,14 +87,14 @@ const BreakdownChart = ({ by, data = [], loading, height = 240 }) => {
           <CartesianGrid vertical={false} stroke="#27272a" strokeDasharray="3 3" />
           <XAxis
             dataKey="name"
-            tick={{ fill: "#52525b", fontSize: 9, fontFamily: "monospace" }}
+            tick={{ fill: "#a1a1aa", fontSize: 9, fontFamily: "monospace" }}
             axisLine={{ stroke: "#27272a" }}
             tickLine={false}
             interval="preserveStartEnd"
             minTickGap={16}
           />
           <YAxis
-            tick={{ fill: "#52525b", fontSize: 9, fontFamily: "monospace" }}
+            tick={{ fill: "#a1a1aa", fontSize: 9, fontFamily: "monospace" }}
             axisLine={false}
             tickLine={false}
             allowDecimals={false}
@@ -150,7 +150,7 @@ const BreakdownChart = ({ by, data = [], loading, height = 240 }) => {
               }}
             />
             <span className="text-zinc-400 truncate flex-1">{entry.name}</span>
-            <span className="text-zinc-600 tabular-nums">{entry.count}</span>
+            <span className="text-zinc-400 tabular-nums">{entry.count}</span>
           </div>
         ))}
       </div>

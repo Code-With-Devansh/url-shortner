@@ -24,7 +24,7 @@ export default function Navbar({ setSideOpen }) {
         <div className="flex items-center gap-1">
           <Link
             to="/"
-            className="text-[11px] tracking-widest uppercase text-zinc-500 hover:text-zinc-100 transition-colors duration-200 px-3 py-1.5 no-underline"
+            className="text-[11px] tracking-widest uppercase text-zinc-400 hover:text-zinc-100 transition-colors duration-200 px-3 py-1.5 no-underline"
           >
             Home
           </Link>
@@ -33,14 +33,14 @@ export default function Navbar({ setSideOpen }) {
             <>
               <Link
                 to="/dashboard"
-                className="text-[11px] tracking-widest uppercase text-zinc-500 hover:text-zinc-100 transition-colors duration-200 px-3 py-1.5 no-underline"
+                className="text-[11px] tracking-widest uppercase text-zinc-400 hover:text-zinc-100 transition-colors duration-200 px-3 py-1.5 no-underline"
                 activeProps={{ className: "text-lime-400" }}
               >
                 Dashboard
               </Link>
               <Link
                 to="/analytics"
-                className="text-[11px] tracking-widest uppercase text-zinc-500 hover:text-zinc-100 transition-colors duration-200 px-3 py-1.5 no-underline"
+                className="text-[11px] tracking-widest uppercase text-zinc-400 hover:text-zinc-100 transition-colors duration-200 px-3 py-1.5 no-underline"
                 activeProps={{ className: "text-lime-400" }}
               >
                 Analytics

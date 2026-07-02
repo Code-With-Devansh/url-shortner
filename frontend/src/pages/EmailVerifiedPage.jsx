@@ -59,7 +59,7 @@ export default function EmailVerifiedPage() {
               <h2 className="text-xl font-extrabold text-zinc-100 tracking-tight" style={{ fontFamily: "'Syne', sans-serif" }}>
                 Email verified!
               </h2>
-              <p className="mt-2 text-xs text-zinc-500 tracking-wide leading-relaxed">
+              <p className="mt-2 text-xs text-zinc-400 tracking-wide leading-relaxed">
                 Go to the Authentication Page.
               </p>
             </div>
@@ -70,7 +70,7 @@ export default function EmailVerifiedPage() {
 
             {/* Countdown */}
             {count > 0 && (
-              <p className="text-[10px] tracking-widest uppercase text-zinc-700">
+              <p className="text-[10px] tracking-widest uppercase text-zinc-500">
                 closing in <span className="text-lime-400/70">{count}s</span>
               </p>
             )}

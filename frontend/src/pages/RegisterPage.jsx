@@ -68,7 +68,7 @@ const RegisterPage = ({ setLogin }) => {
             snip
             <span className="text-lime-400">]</span>
           </h1>
-          <p className="mt-2 text-[11px] tracking-widest uppercase text-zinc-500">
+          <p className="mt-2 text-[11px] tracking-widest uppercase text-zinc-400">
             create your account
           </p>
         </div>
@@ -81,7 +81,7 @@ const RegisterPage = ({ setLogin }) => {
           <div className="px-8 py-8 flex flex-col gap-5">
             {/* Name */}
             <div>
-              <label className="block text-[10px] tracking-[0.2em] uppercase text-zinc-500 mb-2">
+              <label className="block text-[10px] tracking-[0.2em] uppercase text-zinc-400 mb-2">
                 Full Name
               </label>
               <input
@@ -96,7 +96,7 @@ const RegisterPage = ({ setLogin }) => {
 
             {/* Email */}
             <div>
-              <label className="block text-[10px] tracking-[0.2em] uppercase text-zinc-500 mb-2">
+              <label className="block text-[10px] tracking-[0.2em] uppercase text-zinc-400 mb-2">
                 Email
               </label>
               <input
@@ -111,7 +111,7 @@ const RegisterPage = ({ setLogin }) => {
 
             {/* Password */}
             <div>
-              <label className="block text-[10px] tracking-[0.2em] uppercase text-zinc-500 mb-2">
+              <label className="block text-[10px] tracking-[0.2em] uppercase text-zinc-400 mb-2">
                 Password
               </label>
               <div className="relative">
@@ -126,7 +126,7 @@ const RegisterPage = ({ setLogin }) => {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-600 hover:text-zinc-400 transition-colors duration-200 cursor-pointer text-xs"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-200 transition-colors duration-200 cursor-pointer text-xs"
                 >
                   {showPassword ? "HIDE" : "SHOW"}
                 </button>
@@ -168,7 +168,7 @@ const RegisterPage = ({ setLogin }) => {
         </div>
 
         {/* Sign in link */}
-        <p className="text-center mt-5 text-[11px] tracking-wider text-zinc-600">
+        <p className="text-center mt-5 text-[11px] tracking-wider text-zinc-400">
           Already have an account?{" "}
           <span
             onClick={() => setLogin(true)}

@@ -53,7 +53,7 @@ const Homepage = () => {
           snip
           <span className="text-lime-400">]</span>
         </h1>
-        <p className="mt-3 text-xs tracking-widest uppercase text-zinc-500">
+        <p className="mt-3 text-xs tracking-widest uppercase text-zinc-400">
           paste long. get short.
         </p>
       </header>
@@ -79,7 +79,7 @@ const Homepage = () => {
             {/* Result section */}
             {shortUrl && (
               <div className="mt-7 pt-7 border-t border-zinc-800">
-                <label className="block text-[10px] tracking-[0.2em] uppercase text-zinc-500 mb-2.5">
+                <label className="block text-[10px] tracking-[0.2em] uppercase text-zinc-400 mb-2.5">
                   Your Short URL
                 </label>
                 <div className="flex items-center gap-2.5">
@@ -96,7 +96,7 @@ const Homepage = () => {
                     className={`shrink-0 border rounded px-4 py-3.5 text-[11px] font-bold tracking-widest uppercase transition-all duration-200 cursor-pointer ${
                       copied
                         ? "border-lime-400 text-lime-400 bg-lime-400/10"
-                        : "border-zinc-700 text-zinc-500 hover:border-lime-400 hover:text-lime-400"
+                        : "border-zinc-700 text-zinc-400 hover:border-lime-400 hover:text-lime-400"
                     }`}
                   >
                     {copied ? "✓ Copied" : "Copy"}
@@ -108,7 +108,7 @@ const Homepage = () => {
         </div>
 
         {/* Stats */}
-        <div className="flex items-center justify-center text-zinc-600 text-[11px] tracking-wide">
+        <div className="flex items-center justify-center text-zinc-400 text-[11px] tracking-wide">
           <span className="flex items-center gap-1.5 px-4">
             ⚡ Instant redirect
           </span>
@@ -124,7 +124,7 @@ const Homepage = () => {
       </main>
 
       {/* Footer */}
-      <footer className="mt-auto py-10 text-[10px] tracking-widest uppercase text-zinc-600">
+      <footer className="mt-auto py-10 text-[10px] tracking-widest uppercase text-zinc-400">
         built with ♥ — link shortener
       </footer>
 

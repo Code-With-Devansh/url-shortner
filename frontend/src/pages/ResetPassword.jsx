@@ -66,7 +66,7 @@ export default function ResetPassword() {
                   <h2 className="text-lg font-extrabold text-zinc-100 tracking-tight" style={{ fontFamily: "'Syne', sans-serif" }}>
                     Set new password
                   </h2>
-                  <p className="mt-1.5 text-xs text-zinc-500 tracking-wide leading-relaxed">
+                  <p className="mt-1.5 text-xs text-zinc-400 tracking-wide leading-relaxed">
                     Choose a strong password for your account.
                   </p>
                 </div>
@@ -75,7 +75,7 @@ export default function ResetPassword() {
 
                 {/* New password */}
                 <div>
-                  <label className="block text-[10px] tracking-[0.2em] uppercase text-zinc-500 mb-2">
+                  <label className="block text-[10px] tracking-[0.2em] uppercase text-zinc-400 mb-2">
                     New Password
                   </label>
                   <div className="relative">
@@ -89,7 +89,7 @@ export default function ResetPassword() {
                     <button
                       type="button"
                       onClick={() => setShow((s) => ({ ...s, password: !s.password }))}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] tracking-widest uppercase text-zinc-600 hover:text-zinc-400 transition-colors duration-200 cursor-pointer"
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] tracking-widest uppercase text-zinc-400 hover:text-zinc-200 transition-colors duration-200 cursor-pointer"
                     >
                       {show.password ? "Hide" : "Show"}
                     </button>
@@ -110,7 +110,7 @@ export default function ResetPassword() {
 
                 {/* Confirm password */}
                 <div>
-                  <label className="block text-[10px] tracking-[0.2em] uppercase text-zinc-500 mb-2">
+                  <label className="block text-[10px] tracking-[0.2em] uppercase text-zinc-400 mb-2">
                     Confirm New Password
                   </label>
                   <div className="relative">
@@ -131,7 +131,7 @@ export default function ResetPassword() {
                     <button
                       type="button"
                       onClick={() => setShow((s) => ({ ...s, confirm: !s.confirm }))}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] tracking-widest uppercase text-zinc-600 hover:text-zinc-400 transition-colors duration-200 cursor-pointer"
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] tracking-widest uppercase text-zinc-400 hover:text-zinc-200 transition-colors duration-200 cursor-pointer"
                     >
                       {show.confirm ? "Hide" : "Show"}
                     </button>
@@ -167,7 +167,7 @@ export default function ResetPassword() {
 
                 <Link
                   to="/auth"
-                  className="text-center text-[11px] tracking-widest uppercase text-zinc-600 hover:text-zinc-400 transition-colors duration-200 no-underline"
+                  className="text-center text-[11px] tracking-widest uppercase text-zinc-400 hover:text-zinc-200 transition-colors duration-200 no-underline"
                 >
                   ← Back to sign in
                 </Link>
@@ -193,7 +193,7 @@ export default function ResetPassword() {
                   <h2 className="text-lg font-extrabold text-zinc-100 tracking-tight" style={{ fontFamily: "'Syne', sans-serif" }}>
                     Password updated!
                   </h2>
-                  <p className="mt-2 text-xs text-zinc-500 leading-relaxed tracking-wide">
+                  <p className="mt-2 text-xs text-zinc-400 leading-relaxed tracking-wide">
                     Your password has been changed successfully.<br />You can now sign in with your new password.
                   </p>
                 </div>

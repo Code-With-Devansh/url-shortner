@@ -8,6 +8,7 @@ import { useNavigate, Link } from "@tanstack/react-router";
 import urlSchema from "../schema/url.schema.js";
 import { getOverallSummary, getOverallTimeseries } from "../api/analytics.api";
 import TimeseriesChart from "../components/analytics/TimeseriesChart";
+import { Link2, Eye, TrendingUp } from "lucide-react";
 
 export default function DashboardPage() {
   const BASE_URL = import.meta.env.VITE_API_URL;
@@ -75,7 +76,7 @@ export default function DashboardPage() {
           >
             Dashboard
           </h2>
-          <p className="mt-1 text-xs text-zinc-500 tracking-wider">
+          <p className="mt-1 text-xs text-zinc-400 tracking-wider">
             Manage and track all your shortened links.
           </p>
         </div>
@@ -85,7 +86,7 @@ export default function DashboardPage() {
           <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-zinc-700" />
           <div className="px-7 py-6">
             <div className="flex items-center justify-between mb-4">
-              <p className="text-[10px] tracking-[0.2em] uppercase text-zinc-500">
+              <p className="text-[10px] tracking-[0.2em] uppercase text-zinc-400">
                 Last 7 Days
               </p>
               <Link
@@ -100,12 +101,12 @@ export default function DashboardPage() {
               <StatCard
                 label="Total Clicks"
                 value={summaryLoading ? "—" : (summary?.total ?? 0)}
-                icon="🔗"
+                icon={Link2}
               />
               <StatCard
                 label="Unique Visitors"
                 value={summaryLoading ? "—" : (summary?.uniqueVisitors ?? 0)}
-                icon="👁"
+                icon={Eye}
               />
               <StatCard
                 label="Avg. Clicks / Day"
@@ -114,7 +115,7 @@ export default function DashboardPage() {
                     ? "—"
                     : Math.round(((summary?.total ?? 0) / 7) * 10) / 10
                 }
-                icon="📈"
+                icon={TrendingUp}
               />
             </div>
 
@@ -130,14 +131,14 @@ export default function DashboardPage() {
         <div className="relative bg-zinc-900 border border-zinc-800 rounded overflow-hidden mb-6">
           <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-lime-400" />
           <div className="px-7 py-6">
-            <p className="text-[10px] tracking-[0.2em] uppercase text-zinc-500 mb-4">
+            <p className="text-[10px] tracking-[0.2em] uppercase text-zinc-400 mb-4">
               Create a New Short Link
             </p>
 
             <div className="flex flex-col sm:flex-row gap-2.5">
               {/* Long URL */}
               <div className="flex-[2]">
-                <label className="block text-[9px] tracking-[0.15em] uppercase text-zinc-600 mb-1.5">
+                <label className="block text-[9px] tracking-[0.15em] uppercase text-zinc-400 mb-1.5">
                   Destination URL
                 </label>
                 <input
@@ -154,11 +155,11 @@ export default function DashboardPage() {
 
               {/* Slug */}
               <div className="flex-1">
-                <label className="block text-[9px] tracking-[0.15em] uppercase text-zinc-600 mb-1.5">
+                <label className="block text-[9px] tracking-[0.15em] uppercase text-zinc-400 mb-1.5">
                   Custom Slug
                 </label>
                 <div className="flex items-center bg-zinc-950 border border-zinc-800 rounded focus-within:border-lime-400 focus-within:ring-2 focus-within:ring-lime-400/10 transition-all duration-200 overflow-hidden">
-                  <span className="pl-4 pr-1 text-xs text-zinc-600 whitespace-nowrap shrink-0">
+                  <span className="pl-4 pr-1 text-xs text-zinc-400 whitespace-nowrap shrink-0">
                     {BASE_URL}
                   </span>
                   <input

@@ -15,7 +15,7 @@ const RangeTabs = ({ value, onChange }) => (
         className={`text-[9px] tracking-widest uppercase rounded px-2.5 py-1 transition-all duration-150 cursor-pointer ${
           value === r.value
             ? "bg-lime-400 text-zinc-950 font-bold"
-            : "text-zinc-500 hover:text-zinc-200"
+            : "text-zinc-400 hover:text-zinc-200"
         }`}
       >
         {r.label}

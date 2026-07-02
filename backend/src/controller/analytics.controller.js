@@ -1,6 +1,6 @@
 import { getOverallAnalyticsBreakdown, getOverallAnalyticsLeaderboard, getOverallAnalyticsSummary, getOverallAnalyticsTimeseries, getUrlAnalyticsBreakdown, getUrlAnalyticsSummary, getUrlAnalyticsTimeseries } from "../services/analytics.service.js";
 import tryCatch from "../utils/tryCatch.js";
-import { toAnalyticsResponseDTO } from "../dto/analytics.dto.js";
+import { overallLeaderboardDTO, toAnalyticsResponseDTO, toOverallSummaryDTO, toUrlSummary } from "../dto/analytics.dto.js";
 
 // Per - Url
 export const getUrlSummary = tryCatch(async (req, res, next) => {
@@ -10,7 +10,7 @@ export const getUrlSummary = tryCatch(async (req, res, next) => {
     req.user._id,
     req.query.range,
   );
-  res.status(200).json(toAnalyticsResponseDTO(data));
+  res.status(200).json(toUrlSummary(data));
 }, "getUrlSummary ");
 
 export const getUrlTimeseries = tryCatch(async (req, res, next) => {
@@ -35,7 +35,7 @@ export const getUrlBreakdown = tryCatch(async (req, res, next) => {
 // Overall
 export const getOverallSummary = tryCatch(async (req, res, next) => {
   const data = await getOverallAnalyticsSummary(req.user._id, req.query.range);
-  res.status(200).json(toAnalyticsResponseDTO(data));
+  res.status(200).json(toOverallSummaryDTO(data));
 }, "getOverallSummary");
 
 export const getOverallTimeseries = tryCatch(async (req, res, next) => {
@@ -62,5 +62,5 @@ export const getOverallLeaderboard = tryCatch(async (req, res, next) => {
     req.query.range,
     limit,
   );
-  res.status(200).json(toAnalyticsResponseDTO(data));
+  res.status(200).json(overallLeaderboardDTO(data));
 }, "getOverallLeaderboard");

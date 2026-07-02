@@ -10,6 +10,8 @@ import { deleteUrl } from "../api/shortUrl.api";
 import RangeTabs from "../components/analytics/RangeTabs";
 import TimeseriesChart from "../components/analytics/TimeseriesChart";
 import BreakdownChart from "../components/analytics/BreakdownChart";
+import StatCard from "../components/StatCard";
+import { Link2, Eye, Search, Check, TriangleAlert } from "lucide-react";
 
 const BREAKDOWN_TABS = [
   { label: "Countries", value: "countries" },
@@ -86,18 +88,18 @@ export default function UrlDetailsPage() {
         {/* Back link */}
         <Link
           to="/dashboard"
-          className="inline-flex items-center gap-1.5 text-[10px] tracking-widest uppercase text-zinc-500 hover:text-lime-400 transition-colors duration-200 no-underline mb-6"
+          className="inline-flex items-center gap-1.5 text-[10px] tracking-widest uppercase text-zinc-400 hover:text-lime-400 transition-colors duration-200 no-underline mb-6"
         >
           ← Back to Dashboard
         </Link>
 
         {notFound ? (
           <div className="bg-zinc-900 border border-zinc-800 rounded px-7 py-16 text-center">
-            <p className="text-2xl mb-2">🔍</p>
-            <p className="text-xs tracking-widest uppercase text-zinc-500 mb-1">
+            <Search size={22} strokeWidth={1.75} className="mx-auto mb-3 text-zinc-500" />
+            <p className="text-xs tracking-widest uppercase text-zinc-400 mb-1">
               Link not found
             </p>
-            <p className="text-[11px] text-zinc-700">
+            <p className="text-[11px] text-zinc-500">
               It may have been deleted, or it doesn't belong to your account.
             </p>
           </div>
@@ -116,7 +118,7 @@ export default function UrlDetailsPage() {
                     {summary?.shortUrl}
                   </h2>
                 )}
-                <p className="mt-1 text-xs text-zinc-500 tracking-wider truncate max-w-md">
+                <p className="mt-1 text-xs text-zinc-400 tracking-wider truncate max-w-md">
                   {summaryLoading ? "Loading…" : summary?.fullUrl}
                 </p>
               </div>
@@ -130,7 +132,7 @@ export default function UrlDetailsPage() {
                 className={`text-[10px] tracking-widest uppercase border rounded px-3 py-1.5 transition-all duration-200 cursor-pointer ${
                   copied
                     ? "border-lime-400 text-lime-400 bg-lime-400/10"
-                    : "border-zinc-700 text-zinc-500 hover:border-lime-400 hover:text-lime-400"
+                    : "border-zinc-700 text-zinc-400 hover:border-lime-400 hover:text-lime-400"
                 }`}
               >
                 {copied ? "✓ Copied" : "Copy Link"}
@@ -139,13 +141,13 @@ export default function UrlDetailsPage() {
                 href={summary?.shortUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="text-[10px] tracking-widest uppercase border border-zinc-700 text-zinc-500 hover:border-zinc-400 hover:text-zinc-300 rounded px-3 py-1.5 transition-all duration-200 no-underline"
+                className="text-[10px] tracking-widest uppercase border border-zinc-700 text-zinc-400 hover:border-zinc-400 hover:text-zinc-100 rounded px-3 py-1.5 transition-all duration-200 no-underline"
               >
                 Visit
               </a>
               <button
                 onClick={() => setConfirmingDelete(true)}
-                className="text-[10px] tracking-widest uppercase border border-zinc-800 text-zinc-700 hover:border-red-500/50 hover:text-red-500 rounded px-3 py-1.5 transition-all duration-200 cursor-pointer"
+                className="text-[10px] tracking-widest uppercase border border-zinc-800 text-zinc-500 hover:border-red-500/50 hover:text-red-500 rounded px-3 py-1.5 transition-all duration-200 cursor-pointer"
               >
                 Delete
               </button>
@@ -153,35 +155,23 @@ export default function UrlDetailsPage() {
 
             {/* Stats */}
             <div className="grid grid-cols-2 gap-3 mb-6">
-              <div className="bg-zinc-900 border border-zinc-800 rounded px-5 py-4">
-                <span className="text-[9px] tracking-[0.2em] uppercase text-zinc-600">
-                  Total Clicks
-                </span>
-                <p
-                  className="text-xl font-bold text-zinc-100 mt-2"
-                  style={{ fontFamily: "'Syne', sans-serif" }}
-                >
-                  {summaryLoading ? "—" : (summary?.total ?? 0)}
-                </p>
-              </div>
-              <div className="bg-zinc-900 border border-zinc-800 rounded px-5 py-4">
-                <span className="text-[9px] tracking-[0.2em] uppercase text-zinc-600">
-                  Unique Visitors
-                </span>
-                <p
-                  className="text-xl font-bold text-zinc-100 mt-2"
-                  style={{ fontFamily: "'Syne', sans-serif" }}
-                >
-                  {summaryLoading ? "—" : (summary?.uniqueVisitors ?? 0)}
-                </p>
-              </div>
+              <StatCard
+                label="Total Clicks"
+                value={summaryLoading ? "—" : (summary?.total ?? 0)}
+                icon={Link2}
+              />
+              <StatCard
+                label="Unique Visitors"
+                value={summaryLoading ? "—" : (summary?.uniqueVisitors ?? 0)}
+                icon={Eye}
+              />
             </div>
 
             {/* Timeseries */}
             <div className="relative bg-zinc-900 border border-zinc-800 rounded overflow-hidden mb-6">
               <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-zinc-700" />
               <div className="px-7 py-6">
-                <p className="text-[10px] tracking-[0.2em] uppercase text-zinc-500 mb-4">
+                <p className="text-[10px] tracking-[0.2em] uppercase text-zinc-400 mb-4">
                   Clicks over time
                 </p>
                 {timeseriesLoading ? (
@@ -197,7 +187,7 @@ export default function UrlDetailsPage() {
               <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-lime-400" />
               <div className="px-7 py-6">
                 <div className="flex items-center justify-between mb-4">
-                  <p className="text-[10px] tracking-[0.2em] uppercase text-zinc-500">
+                  <p className="text-[10px] tracking-[0.2em] uppercase text-zinc-400">
                     Breakdown
                   </p>
                 </div>
@@ -209,7 +199,7 @@ export default function UrlDetailsPage() {
                       className={`text-[9px] tracking-widest uppercase rounded px-2.5 py-1 border transition-all duration-150 cursor-pointer ${
                         breakdownBy === tab.value
                           ? "border-lime-400/60 text-lime-400 bg-lime-400/10"
-                          : "border-zinc-800 text-zinc-600 hover:border-zinc-600 hover:text-zinc-400"
+                          : "border-zinc-800 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200"
                       }`}
                     >
                       {tab.label}
@@ -236,7 +226,7 @@ export default function UrlDetailsPage() {
               <p className="text-sm font-bold text-zinc-100 mb-1">
                 Delete this link?
               </p>
-              <p className="text-xs text-zinc-500 mb-6">
+              <p className="text-xs text-zinc-400 mb-6">
                 This action cannot be undone. The short link will stop
                 working immediately.
               </p>

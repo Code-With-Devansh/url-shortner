@@ -4,6 +4,7 @@ import { useInfiniteQuery, useMutation } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { deleteUrl } from "../api/shortUrl.api";
 import { getUrls } from "../api/user.api";
+import { TriangleAlert, Search } from "lucide-react";
 
 
 const BASE = import.meta.env.VITE_API_URL;
@@ -47,7 +48,7 @@ const UrlRow = React.memo(({ url, onCopy, onDelete, copied }) => {
           <span className="text-lime-400 text-sm font-medium tracking-wide font-mono group-hover/link:underline">
             {url.short_url}
           </span>
-          <span className="text-[9px] tracking-widest uppercase text-zinc-600 border border-zinc-800 rounded px-1.5 py-0.5">
+          <span className="text-[9px] tracking-widest uppercase text-zinc-400 border border-zinc-800 rounded px-1.5 py-0.5">
             {url.clicks} visits
           </span>
           {!url.isActive && (
@@ -56,11 +57,11 @@ const UrlRow = React.memo(({ url, onCopy, onDelete, copied }) => {
             </span>
           )}
         </div>
-        <p className="text-xs text-zinc-600 truncate">{url.full_url}</p>
+        <p className="text-xs text-zinc-400 truncate">{url.full_url}</p>
       </Link>
 
       {/* Created */}
-      <span className="hidden sm:block text-[10px] tracking-wider text-zinc-700 shrink-0 tabular-nums">
+      <span className="hidden sm:block text-[10px] tracking-wider text-zinc-500 shrink-0 tabular-nums">
         {new Date(url.createdAt).toLocaleDateString("en-US", {
           month: "short", day: "numeric", year: "numeric"
         })}
@@ -73,7 +74,7 @@ const UrlRow = React.memo(({ url, onCopy, onDelete, copied }) => {
           className={`text-[10px] tracking-widest uppercase border rounded px-3 py-1.5 transition-all duration-200 cursor-pointer ${
             isCopied
               ? "border-lime-400 text-lime-400 bg-lime-400/10"
-              : "border-zinc-700 text-zinc-500 hover:border-lime-400 hover:text-lime-400"
+              : "border-zinc-700 text-zinc-400 hover:border-lime-400 hover:text-lime-400"
           }`}
         >
           {isCopied ? "✓ Copied" : "Copy"}
@@ -82,13 +83,13 @@ const UrlRow = React.memo(({ url, onCopy, onDelete, copied }) => {
           href={`${url.short_url}`}
           target="_blank"
           rel="noreferrer"
-          className="text-[10px] tracking-widest uppercase border border-zinc-700 text-zinc-500 hover:border-zinc-400 hover:text-zinc-300 rounded px-3 py-1.5 transition-all duration-200"
+          className="text-[10px] tracking-widest uppercase border border-zinc-700 text-zinc-400 hover:border-zinc-400 hover:text-zinc-100 rounded px-3 py-1.5 transition-all duration-200"
         >
           Visit
         </a>
         <button
           onClick={() => onDelete(url.id)}
-          className="text-[10px] tracking-widests uppercase border border-zinc-800 text-zinc-700 hover:border-red-500/50 hover:text-red-500 rounded px-3 py-1.5 transition-all duration-200 cursor-pointer"
+          className="text-[10px] tracking-widests uppercase border border-zinc-800 text-zinc-500 hover:border-red-500/50 hover:text-red-500 rounded px-3 py-1.5 transition-all duration-200 cursor-pointer"
         >
           Del
         </button>
@@ -120,7 +121,7 @@ const DeleteModal = ({ onConfirm, onCancel }) => (
       <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-red-500" />
       <div className="px-7 py-7">
         <p className="text-sm font-bold text-zinc-100 mb-1">Delete this link?</p>
-        <p className="text-xs text-zinc-500 mb-6">
+        <p className="text-xs text-zinc-400 mb-6">
           This action cannot be undone. The short link will stop working immediately.
         </p>
         <div className="flex gap-2.5">
@@ -242,9 +243,9 @@ const UserUrls = () => {
       <div className="px-7 py-4 border-b border-zinc-800 flex flex-col gap-3">
         {/* Row 1: title + search */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <p className="text-[10px] tracking-[0.2em] uppercase text-zinc-500">
+          <p className="text-[10px] tracking-[0.2em] uppercase text-zinc-400">
             Your Links{" "}
-            <span className="text-zinc-700">({totalLoaded}{hasNextPage ? "+" : ""})</span>
+            <span className="text-zinc-500">({totalLoaded}{hasNextPage ? "+" : ""})</span>
           </p>
           <input
             type="text"
@@ -266,7 +267,7 @@ const UserUrls = () => {
                 className={`text-[9px] tracking-widest uppercase rounded px-2.5 py-1 border transition-all duration-150 cursor-pointer ${
                   sortIndex === i
                     ? "border-lime-400/60 text-lime-400 bg-lime-400/10"
-                    : "border-zinc-800 text-zinc-600 hover:border-zinc-600 hover:text-zinc-400"
+                    : "border-zinc-800 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200"
                 }`}
               >
                 {opt.label}
@@ -286,7 +287,7 @@ const UserUrls = () => {
                 className={`text-[9px] tracking-widest uppercase rounded px-2.5 py-1 border transition-all duration-150 cursor-pointer ${
                   isActiveFilter === opt.value
                     ? "border-zinc-400/60 text-zinc-300 bg-zinc-700/30"
-                    : "border-zinc-800 text-zinc-600 hover:border-zinc-600 hover:text-zinc-400"
+                    : "border-zinc-800 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200"
                 }`}
               >
                 {opt.label}
@@ -299,7 +300,7 @@ const UserUrls = () => {
       {/* ── Body ── */}
       {isError ? (
         <div className="px-7 py-16 text-center">
-          <p className="text-2xl mb-2">⚠️</p>
+          <TriangleAlert size={22} strokeWidth={1.75} className="mx-auto mb-3 text-red-500/70" />
           <p className="text-xs tracking-widest uppercase text-red-500/70">
             {error?.message ?? "Failed to load links"}
           </p>
@@ -310,8 +311,8 @@ const UserUrls = () => {
         </div>
       ) : urls.length === 0 ? (
         <div className="px-7 py-16 text-center">
-          <p className="text-2xl mb-2">🔍</p>
-          <p className="text-xs tracking-widests uppercase text-zinc-600">
+          <Search size={22} strokeWidth={1.75} className="mx-auto mb-3 text-zinc-500" />
+          <p className="text-xs tracking-widests uppercase text-zinc-400">
             No links found
           </p>
         </div>
@@ -337,7 +338,7 @@ const UserUrls = () => {
           </div>
         )}
         {!hasNextPage && urls.length > 0 && (
-          <p className="text-center text-[9px] tracking-widest uppercase text-zinc-800 py-4">
+          <p className="text-center text-[9px] tracking-widest uppercase text-zinc-500 py-4">
             — end of list —
           </p>
         )}
