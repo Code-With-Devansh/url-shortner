@@ -1,4 +1,5 @@
 import { flushAnalyticsKey } from "./jobs/flushAnalytics.js";
+import { ShortUrlSchema } from "../models/shortUrl.model.js";
 import redis from "../config/redis.config.js";
 import { mongoConnection } from "../config/mongo.config.js";
 import logger from "../logger/index.js";
@@ -22,13 +23,31 @@ try {
   }
 
   const CONCURRENCY = 10;
+   let totalClickUpdates = 0;
   for (let i = 0; i < keys.length; i += CONCURRENCY) {
     const batch = keys.slice(i, i + CONCURRENCY);
-    await Promise.all(batch.map(flushAnalyticsKey));
+    const results = await Promise.all(batch.map(flushAnalyticsKey));
+    const clicksByUrl = new Map();
+    for (const result of results) {
+      if (!result) continue;
+      const { urlId, totalClicks } = result;
+      clicksByUrl.set(urlId, (clicksByUrl.get(urlId) ?? 0) + totalClicks);
+    }
+
+    if (clicksByUrl.size > 0) {
+      const operations = Array.from(clicksByUrl, ([urlId, count]) => ({
+        updateOne: {
+          filter: { _id: urlId },
+          update: { $inc: { clicks: count } },
+        },
+      }));
+      await ShortUrlSchema.bulkWrite(operations);
+      totalClickUpdates += operations.length;
+    }
   }
 
   jobLogger.info(
-    { durationMs: Date.now() - start, keyCount: keys.length },
+    { durationMs: Date.now() - start, keyCount: keys.length, totalClickUpdates  },
     "job completed"
   );
 } catch (err) {

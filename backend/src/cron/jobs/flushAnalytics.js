@@ -6,19 +6,20 @@ import {
   hllArchiveKey,
   isBucketDueForFlush,
 } from "../../cache/clickBucket.redis.js";
+
 const RETENTION_DAYS = 90;
 const RETENTION_SECONDS = RETENTION_DAYS * 86400;
 
 export async function flushAnalyticsKey(key) {
   const [, urlId, date, hh, mm] = key.split(":");
   const minute = `${hh}:${mm}`;
-  if (!isBucketDueForFlush(date, minute)) return;
+  if (!isBucketDueForFlush(date, minute)) return null;
 
   const data = await redis.hgetall(key);
 
   if (!data || Object.keys(data).length === 0) {
-    await redis.srem("analytics:active", key); 
-    return;
+    await redis.srem("analytics:active", key);
+    return null;
   }
 
   const countries = {};
@@ -65,4 +66,6 @@ export async function flushAnalyticsKey(key) {
   await redis.srem("analytics:active", key);
 
   await invalidateAnalyticsCache(urlId);
+
+  return totalClicks > 0 ? { urlId, totalClicks } : null;
 }

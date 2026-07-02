@@ -25,5 +25,4 @@ export const processClick = async (data) => {
     hour,
     minute,
   );
-  await incrementClickCountToRedis(urlId);
 };

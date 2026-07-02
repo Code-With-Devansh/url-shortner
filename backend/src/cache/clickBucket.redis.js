@@ -80,14 +80,15 @@ export const saveClickToRedis = async (
   date,
   hour,
 ) => {
-  const key = `analytics:${urlId}:${date}`;
-  const hllKey = `analytics:${urlId}:${date}:visitors`;
+  const minute = minuteOf();
+  const key = minuteBucketKey(urlId, date, minute);
+  const hllKey = hllKeyForBucket(key);
   const pipeline = redis.multi();
 
   pipeline.hincrby(key, "total", 1);
   pipeline.hincrby(key, `country:${country}`, 1);
-  pipeline.hincrby(key, `device:${ ua.device.type || "Unknown"}`, 1);
-  pipeline.hincrby(key, `browser:${ua.browser.name || "Unknown" }`, 1);
+  pipeline.hincrby(key, `device:${ua.device.type || "Unknown"}`, 1);
+  pipeline.hincrby(key, `browser:${ua.browser.name || "Unknown"}`, 1);
   pipeline.hincrby(key, `os:${ua.os.name || "Unknown"}`, 1);
   pipeline.hincrby(key, `referer:${referer}`, 1);
   pipeline.hincrby(key, `hour:${hour}`, 1);
