@@ -12,6 +12,7 @@ import {
   findUserById,
   savePasswordResetToken,
   saveVerificationToken,
+  setEmailVerified,
 } from "../dao/user.dao.js";
 import {
   cacheRefreshToken,
@@ -31,10 +32,13 @@ import {
 import { ErrorCodes } from "../utils/errorCodes.js";
 import {
   generateAccessToken,
+  generateRandomToken,
   generateRefreshToken,
   generateVerificationToken,
+  verifyEmailVerificationToken,
   verifyRefreshToken,
 } from "../utils/helper.js";
+import { notifyClient } from "../utils/sseClient.js";
 
 export const registerUser = async (name, email, password) => {
   const existingUser = await findUserByEmail(email);

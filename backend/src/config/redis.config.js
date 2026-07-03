@@ -1,4 +1,6 @@
 import IORedis from "ioredis";
+import fs from "node:fs";
+import path from "node:path";
 import logger from "../logger/index.js";
 import config from "./index.js";
 const options = {
@@ -19,6 +21,14 @@ if (config.redis.password) {
   options.password = config.redis.password;
 }
 const client = new IORedis(options);
+
+client.defineCommand("claimAnalyticsKey", {
+  numberOfKeys: 4,
+  lua: fs.readFileSync(
+    path.join(process.cwd(), "src/lua/analyticsClaim.lua"),
+    "utf8",
+  ),
+});
 
 client.on("connect", () => logger.info("[redis] connected"));
 client.on("reconnecting", () => logger.warn("[redis] reconnecting..."));

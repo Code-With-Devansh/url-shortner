@@ -3,7 +3,10 @@
 # (src/cron/flushClicks.js) does not exist in the codebase; analyticsWorker.js
 # is the job that actually flushes the Redis analytics buffer into MongoDB.
 
-# Flush the Redis analytics write-buffer into MongoDB ClickBuckets every day at 3am
+# Flush the Redis analytics write-buffer into MongoDB ClickBuckets - every minute
 */1 * * * * cd /usr/src/app && node src/cron/analyticsWorker.js >> /proc/1/fd/1 2>> /proc/1/fd/2
+
+# recovery job — every 5 minutes, offset by 2 min so it doesn't run in the same tick
+2-59/5 * * * * cd /path/to/app && /usr/bin/node jobs/analyticsRecoveryWorker.js >> /var/log/analytics-recovery.log 2>&1
 
 # trailing newline required by cron
