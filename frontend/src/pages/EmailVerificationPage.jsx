@@ -1,57 +1,114 @@
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { sendVerificationMail } from "../api/user.api";
-import { setVerified } from "../store/slice/authSlice";
+import { loginUser, sendVerificationMail } from "../api/user.api";
+import { login, setVerified } from "../store/slice/authSlice";
+import { clearPendingAuth, getPendingAuth } from "../utils/pendingAuth";
 
 export default function EmailVerificationPage() {
   const auth = useSelector((state) => state.auth);
   const navigate = useNavigate();
+  const dispatch = useDispatch();
 
+  // The register flow already has a redux user (unverified); the login flow
+  // (AUTH_EMAIL_NOT_VERIFIED) never got that far, so fall back to whatever
+  // email we stashed in pendingAuth before redirecting here.
+  const email = auth.user?.email ?? getPendingAuth()?.email ?? null;
+
+  const [sessionToken, setSessionToken] = useState(
+    () => getPendingAuth()?.sessionToken ?? null,
+  );
   const [resent, setResent] = useState(false);
   const [loading, setLoading] = useState(false);
-  const dispatch = useDispatch();
+  const [timedOut, setTimedOut] = useState(false);
+
+  // If someone lands here already verified (e.g. navigated back), skip ahead.
   useEffect(() => {
-    if (auth.user.isVerified) {
-      navigate({
-        to: "/dashboard",
-        replace: true,
-      });
+    if (auth.user?.isVerified) {
+      navigate({ to: "/dashboard", replace: true });
     }
   }, [navigate, auth.user]);
 
-  const email = auth.user?.email;
+  // No email at all means there's nothing to verify (e.g. a hard refresh
+  // wiped both redux state and in-memory pendingAuth) - send them back.
+  useEffect(() => {
+    if (!auth.user && !email) {
+      navigate({ to: "/auth", replace: true });
+    }
+  }, [auth.user, email, navigate]);
+
+  // If we land here without a sessionToken (memory got cleared, or this page
+  // was opened directly), request a fresh one so the SSE stream has
+  // something to connect with.
+  useEffect(() => {
+    if (sessionToken || !email) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await sendVerificationMail(email);
+        if (!cancelled && res.success) {
+          setSessionToken(res.data?.sessionToken ?? null);
+        }
+      } catch {
+        // Swallow here - the "Resend email" button gives them another shot,
+        // and the SSE effect below just won't run without a token.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [email, sessionToken]);
+
   const handleResend = async () => {
+    if (!email) return;
     setLoading(true);
     try {
-      await sendVerificationMail(email);
-
-      setResent(true);
-
-      setTimeout(() => {
-        setResent(false);
-      }, 10000);
+      const res = await sendVerificationMail(email);
+      if (res.success) {
+        setSessionToken(res.data?.sessionToken ?? null);
+        setResent(true);
+        setTimeout(() => setResent(false), 10000);
+      }
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (!auth.user) return;
+    if (!sessionToken) return;
+
     const es = new EventSource(
-      `${import.meta.env.VITE_API_URL}api/auth/verify-status?email=${auth.user.email}`,
-      {
-        withCredentials: true,
-      },
+      `${import.meta.env.VITE_API_URL}api/auth/verify-status?sessionToken=${sessionToken}`,
+      { withCredentials: true },
     );
 
-    es.addEventListener("verified", (e) => {
+    es.addEventListener("verified", async (e) => {
       const data = JSON.parse(e.data);
-      if (data.success) {
-        es.close();
-        dispatch(setVerified());
-        navigate({ to: "/dashboard" });
+      if (!data.success) return;
+
+      es.close();
+      dispatch(setVerified());
+
+      // Auto-login: if we have credentials waiting from register/login,
+      // use them now so the person lands straight in the dashboard instead
+      // of having to sign in again.
+      const pending = getPendingAuth();
+      if (pending?.email && pending?.password) {
+        try {
+          const user = await loginUser(pending.email, pending.password);
+          dispatch(login({ user }));
+        } catch {
+          // Verification itself succeeded; if the follow-up login call
+          // fails for some reason, just fall through to /auth so they can
+          // sign in manually rather than getting stuck here.
+          clearPendingAuth();
+          navigate({ to: "/auth" });
+          return;
+        }
       }
+
+      clearPendingAuth();
+      navigate({ to: "/dashboard" });
     });
 
     es.onerror = () => {
@@ -61,7 +118,7 @@ export default function EmailVerificationPage() {
     const timeout = setTimeout(
       () => {
         es.close();
-        setStatus("timeout");
+        setTimedOut(true);
       },
       10 * 60 * 1000,
     );
@@ -70,7 +127,7 @@ export default function EmailVerificationPage() {
       es.close();
       clearTimeout(timeout);
     };
-  }, [navigate, auth.user]);
+  }, [sessionToken, navigate, dispatch]);
 
   return (
     <div className="min-h-screen bg-zinc-950 flex items-center justify-center px-4 font-mono">
@@ -140,6 +197,12 @@ export default function EmailVerificationPage() {
                 </div>
               ))}
             </div>
+
+            {timedOut && (
+              <p className="text-[11px] tracking-wide text-yellow-400/80">
+                Still waiting? The link may have expired — try resending.
+              </p>
+            )}
 
             {/* Resend */}
             <div className="w-full flex flex-col gap-2.5">

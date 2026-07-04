@@ -27,8 +27,6 @@ const getErrorMessage = (error) => {
         const responseData = error.response.data;
         return (
             responseData?.message ||
-            responseData?.error ||
-            responseData?.errors?.[0] ||
             getStatusMessage(error.response.status)
         );
     }
@@ -38,6 +36,21 @@ const getErrorMessage = (error) => {
     }
 
     return error.message || "An unknown error occurred.";
+};
+
+// Reads the backend's machine-readable error code/fields (see API.md → Error
+// Codes) off an axios error and stamps them onto the error object as
+// `apiCode` / `fieldErrors`, so callers never have to reach into
+// `error.response.data` themselves. Named `apiCode` (not `code`) because
+// axios already uses `error.code` for its own transport-level codes
+// (e.g. "ERR_NETWORK", "ECONNABORTED") — reusing that key would silently
+// clobber/shadow the backend's code.
+const annotateApiError = (error) => {
+    const responseData = error.response?.data;
+    error.apiCode = responseData?.code ?? null;
+    error.fieldErrors = responseData?.errors ?? null;
+    error.userMessage = getErrorMessage(error);
+    return error;
 };
 
 let accessToken = null;
@@ -85,8 +98,7 @@ axiosInstance.interceptors.response.use(
                     originalRequest.headers.Authorization = `Bearer ${token}`;
                     return axiosInstance(originalRequest);
                 }).catch((err) => {
-                    err.userMessage = getErrorMessage(err);
-                    return Promise.reject(err);
+                    return Promise.reject(annotateApiError(err));
                 });
             }
 
@@ -109,17 +121,21 @@ axiosInstance.interceptors.response.use(
             } catch (refreshError) {
                 processQueue(refreshError, null);
                 clearAccessToken();
+                annotateApiError(refreshError);
+                // Refresh failing means the session is genuinely over
+                // (see API.md: 401 AUTH_SESSION_EXPIRED) regardless of what
+                // code the refresh call itself returned.
+                refreshError.apiCode = "AUTH_SESSION_EXPIRED";
+                refreshError.userMessage = "Session expired. Please log in again.";
                 // Dispatch a custom event so your app can redirect to login
                 window.dispatchEvent(new Event("auth:logout"));
-                refreshError.userMessage = "Session expired. Please log in again.";
                 return Promise.reject(refreshError);
             } finally {
                 isRefreshing = false;
             }
         }
 
-        error.userMessage = getErrorMessage(error);
-        return Promise.reject(error);
+        return Promise.reject(annotateApiError(error));
     }
 );
 

@@ -416,9 +416,12 @@ Create a short URL. Works both **anonymously** and **authenticated** — behavio
 
 ```json
 { 
-  "short_id": "aB3xK9z",
-  "short_url": "https://snp.2bd.net/aB3xK9z",
-  "full_url":"https://example.com"
+  "success": true,
+  "data":{
+    "short_id": "aB3xK9z",
+    "short_url": "https://snp.2bd.net/aB3xK9z",
+    "full_url":"https://example.com"
+  }
 }
 ```
 

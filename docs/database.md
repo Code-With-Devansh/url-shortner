@@ -64,7 +64,7 @@ Indexes:
 | `{ user: 1, isActive: 1, createdAt: -1 }` | Filtering to only active/inactive links for a user, still sorted by recency. |
 | `{ originalUrl: "text", shortCode: "text" }` (named `url_text_search`) | Legacy MongoDB `$text` search — see [Search](#search) caveat below. |
 
-**`clicks` field caveat:** this is a denormalized counter, updated only by the `flushClicksToDB` cron job (via `$inc`) reading from the Redis `clicks` hash — it is *not* updated live on every click, and it is a separate code path from the `ClickBucket` analytics pipeline described below. It exists for cheap "sort my links by popularity" queries without needing to aggregate `ClickBucket` documents. It will lag real click counts by up to one cron interval.
+**`clicks` field caveat:** this is a denormalized counter, but it is **no longer a separate write path** from the `ClickBucket` pipeline (see [Known Gaps](#known-gaps--accepted-risk) history below). It's updated by `flushClaimedKey` in the same MongoDB transaction (`session.withTransaction`) that writes that flush's `ClickBucket` document — a `$inc` on `ShortUrl.clicks` alongside the `ClickBucket` upsert, both committed or both rolled back together. It still isn't updated live on every click (it lags by up to one flush interval, ~1–2 minutes), but it can no longer diverge from `ClickBucket` totals the way a separately-scheduled counter could.
 
 **Ownership:** `user` is nullable specifically to support anonymous link creation; all user-scoped queries (delete, list) filter on `user` explicitly rather than assuming its presence.
 
@@ -116,6 +116,8 @@ Two separate Redis client instances are maintained, deliberately:
 
 Both clients share the same retry strategy: exponential-ish backoff (`min(times * 100, 3000)` ms) capped at 10 attempts, after which the process logs fatal and exits — a Redis outage that outlasts ~10 retries is treated as unrecoverable for that process rather than silently degrading forever.
 
+> **Gotcha:** `express-rate-limit`'s `ipKeyGenerator` helper takes an IP **string** (`req.ip`), not the request object. Passing `req` directly coerces it to `"[object Object]"` and produces malformed keys like `login[object Object]:someone@example.com` in production — this happened here and was fixed in `src/middleware/rateLimiter.js`. It went unnoticed in dev because `skip: skipInDev` skips all rate limiters locally, so the buggy `keyGenerator` code path never actually ran outside production. Worth adding a quick prod-config smoke test (or temporarily flipping `skipInDev` off locally) for anything gated by `NODE_ENV`, since dev silently bypassing a code path isn't the same as that path being verified correct.
+
 ### Key Map
 
 | Key pattern | Type | Purpose | TTL |
@@ -124,7 +126,7 @@ Both clients share the same retry strategy: exponential-ish backoff (`min(times 
 | `lock:cache:url:{shortCode}` | String | `SETNX` lock for stampede protection on the above | 5s |
 | `cache:analytics:{scope}:{id}:{range}[:extra]` | String (JSON) | Analytics query result cache (`scope` is `url` or `user`/`overall`) | 30–300s depending on endpoint |
 | `ratelimit:{prefix}:{ip}` | Hash (`tokens`, `ts`) | Token-bucket state for the redirect limiter | ~2x refill time |
-| (various) via `rate-limit-redis` | — | Fixed-window counters for `express-rate-limit` (login, register, shorten, email, refresh, generic API) | matches each limiter's window |
+| `{prefix}{key}` via `rate-limit-redis` | — | Fixed-window counters for `express-rate-limit`. `prefix` is one of `login`, `register`, `shorten:auth`, `shorten:anon`, `email`, `refresh`, `api`, `claim-session`; `key` is whatever the limiter's `keyGenerator` returns, concatenated directly with no separator inserted by the store | matches each limiter's window |
 | `urls:bloom` | RedisBloom `BF` type | Existence pre-check for slugs on the redirect path | none (rebuilt via script if needed) |
 | `refresh:{userId}:{deviceId}` | String (hashed token) | Fast-path session validation | 20 days |
 | `user_sessions:{userId}` | Set of session keys | Index for bulk session invalidation (logout-everywhere, reuse detection) | 20 days |
@@ -133,7 +135,8 @@ Both clients share the same retry strategy: exponential-ish backoff (`min(times 
 | `analytics:{urlId}:{date}` | Hash | Live write buffer for today's click dimensions (`total`, `country:*`, `device:*`, `browser:*`, `os:*`, `referer:*`, `hour:*`) | 48h |
 | `analytics:{urlId}:{date}:visitors` | HyperLogLog | Live unique-visitor estimate for today | 48h |
 | `analytics:active` | Set | Tracks which `analytics:*` hash keys have pending data, so the flush cron doesn't need to `SCAN` the whole keyspace | — |
-| `clicks` | Hash (`urlId -> count`) | Write buffer for the denormalized `ShortUrl.clicks` counter | — (drained and deleted each flush) |
+| `processing:{urlId}:{date}:{HH:MM}` | Hash | A claimed-but-not-yet-flushed minute bucket — the flush job atomically `RENAME`s the `analytics:*` key to this on claim, so a crash mid-flush leaves the data here, not lost | — (deleted on successful flush) |
+| `processing:active` | Sorted set (score = claim timestamp, ms) | Tracks in-flight claims so `analyticsRecoveryWorker.js` can find and re-flush any claim older than the stale threshold | — |
 
 ### Caching Layer
 
@@ -169,31 +172,44 @@ click on GET /:shortId
    ▼
 clickWorker.js (BullMQ worker, concurrency 10)
    │
-   ├─ processClick(): parses user-agent, hashes visitor (ip+ua), extracts date/hour
+   ├─ processClick(): parses user-agent, hashes visitor (ip+ua), extracts date/hour/minute
    │
-   ├─ saveClickToRedis(): one Redis MULTI pipeline —
-   │     HINCRBY analytics:{urlId}:{date}         total, country:*, device:*, browser:*, os:*, referer:*, hour:*
-   │     PFADD  analytics:{urlId}:{date}:visitors visitorHash
-   │     SADD   analytics:active                  analytics:{urlId}:{date}   (so the flush job knows this key exists)
-   │     EXPIRE (NX, 48h) on both the hash and the HLL key
-   │
-   └─ incrementClickCountToRedis(): HINCRBY clicks {urlId} 1   (separate write buffer, feeds ShortUrl.clicks)
+   └─ saveClickToRedis(): one Redis MULTI pipeline —
+         HINCRBY analytics:{urlId}:{date}:{HH:MM}  total, country:*, device:*, browser:*, os:*, referer:*, hour:*
+         PFADD   analytics:{urlId}:{date}:{HH:MM}:visitors visitorHash
+         SADD    analytics:active                  analytics:{urlId}:{date}:{HH:MM}
+         EXPIRE  (NX, 48h) on both keys
    │
    ▼
 (periodic cron jobs — outside the request path entirely)
    │
-   ├─ analyticsWorker.js → flushAnalyticsKey() per key in `analytics:active`:
-   │     reads the hash + PFCOUNT's the HLL, writes one ClickBucket doc (upsert on {url_id, date}),
-   │     deletes both Redis keys, invalidates any cached analytics results for that URL/user,
-   │     removes the key from `analytics:active`
+   ├─ analyticsWorker.js (every minute) → flushAnalyticsKey() per key in `analytics:active`:
+   │     skip (no-op) if the bucket's minute window + grace period hasn't fully elapsed yet
+   │     otherwise: claimKey() atomically RENAMEs analytics:{...} → processing:{...} and
+   │       moves it from the `analytics:active` set to the `processing:active` ZSET (scored
+   │       by claim time) via a single Lua script — the RENAME is what makes the claim atomic
+   │       and crash-safe: the data exists under exactly one key at all times, never both/neither
+   │     → flushClaimedKey(): reads the claimed hash, PFMERGEs its HLL into the day's durable
+   │       archive, then in ONE MongoDB transaction: upserts the ClickBucket doc ($inc) AND
+   │       $inc's ShortUrl.clicks — both commit together or neither does
+   │     → on success: deletes the processing:* key, removes it from processing:active,
+   │       invalidates analytics caches for that URL/owner
+   │     → on failure (thrown from withTransaction): the processing:* key and its ZSET
+   │       entry are deliberately left in place — nothing is lost, it's just still "claimed"
    │
-   └─ flushClicksWorker.js → flushClicksToDB():
-         reads the whole `clicks` hash, bulkWrite()'s $inc on ShortUrl.clicks per urlId, clears the hash
+   └─ analyticsRecoveryWorker.js (every 5 min, offset 2 min) → sweeps `processing:active`
+         for claims older than 5 minutes (a normal flush should never take that long,
+         so age past that threshold means the process that claimed it likely crashed or
+         was killed mid-flush) and calls flushClaimedKey() again for each — this is the
+         replay mechanism: a crash between claim and commit doesn't lose the click data,
+         it just sits under a processing:* key until the recovery sweep picks it back up
 ```
 
-Both cron jobs are standalone scripts (run via `npm run cron:*`, intended to be scheduled externally — see `docker/crontab`), not long-running processes, and both explicitly connect to Mongo/Redis, do their work, and exit — appropriate for a periodic batch job rather than a service.
+Both cron jobs are standalone scripts (run via `npm run cron:*`, scheduled by `docker/crontab`), not long-running processes — they connect to Mongo/Redis, do their work, and exit, appropriate for periodic batch jobs rather than services.
 
-**Read side:** analytics queries (`getUrlAnalyticsSummary`, etc.) merge **flushed MongoDB buckets** for past days with a **live read straight from the Redis hash** for today (`getTodayBucketFromRedis`), so "today so far" is never a day behind waiting for the next cron run. This merge happens in `mergeBuckets()`, which is also where the multi-day `uniqueVisitors` sum (and its upper-bound caveat above) originates.
+**Why `ShortUrl.clicks` can no longer disagree with `ClickBucket`:** both are written inside the same `mongoose` session/transaction in `flushClaimedKey`, from the same aggregated numbers, on the same flush. There is exactly one write path per click event now, not two independently-scheduled ones — see the historical note in [Known Gaps](#known-gaps--accepted-risk).
+
+**Read side:** analytics queries (`getUrlAnalyticsSummary`, etc.) merge **flushed MongoDB buckets** for past days with a **live read straight from whatever Redis minute buckets are still unflushed** for today, so "today so far" is never more than ~1–2 minutes stale. This merge happens in `mergeBuckets()`, which is also where the multi-day `uniqueVisitors` sum (and its upper-bound caveat above) originates.
 
 ## Cursor-Based Pagination
 
@@ -215,7 +231,7 @@ Two search paths exist, selected via `USE_ATLAS_SEARCH`:
 
 ## Known Gaps / Accepted Risk
 
-- **`ShortUrl.clicks` and the `ClickBucket` analytics pipeline are two independent write paths** off the same click event, reconciled by two separate cron jobs on (potentially) different schedules — they are not guaranteed to agree at any given instant, only to both eventually converge.
-- **No transactional guarantee between the Redis write buffer and MongoDB.** If a process crashes between `HINCRBY` and the next flush, in-memory Redis data survives (Redis is configured with its own persistence), but there's no two-phase commit — a Redis data-loss event (e.g. a misconfigured instance with persistence disabled) between click and flush would lose that window's analytics with no replay mechanism.
+- ~~**`ShortUrl.clicks` and the `ClickBucket` analytics pipeline are two independent write paths**~~ — **Fixed.** `flushClicksWorker.js` / the separate `clicks` Redis hash no longer exist. `flushClaimedKey` now writes both `ClickBucket` and `ShortUrl.clicks` inside a single MongoDB transaction on the same flush, so they can't disagree at rest anymore (they can still be momentarily behind "now," same as any flush-based system, but not behind *each other*).
+- ~~**No transactional guarantee between the Redis write buffer and MongoDB.**~~ — **Fixed.** Minute buckets are now claimed via an atomic Redis `RENAME` (`analytics:*` → `processing:*`, see the Lua script backing `claimAnalyticsKey`) before being flushed, so data exists under exactly one key at every point in time — never silently duplicated or dropped between claim and commit. If a flush crashes mid-transaction, the `processing:*` key and its `processing:active` ZSET entry are left in place rather than cleaned up, and `analyticsRecoveryWorker.js` (every 5 min, see [`DEPLOYMENT.md`](./DEPLOYMENT.md#scheduled-jobs)) sweeps for claims older than 5 minutes and re-flushes them. This is the replay mechanism that was previously missing.
 - **The legacy `$text` search index is present but only substring-capable via Atlas Search**, not via `$text` itself — worth knowing if `USE_ATLAS_SEARCH` is ever run in an environment without an Atlas Search index configured.
 - **No documented backup/restore or point-in-time-recovery process** for MongoDB Atlas in this repo — if Atlas's built-in continuous backups are relied on, that should be stated explicitly here rather than assumed.

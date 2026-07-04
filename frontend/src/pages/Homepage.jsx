@@ -4,6 +4,7 @@ import axios from "axios";
 import { createShortUrl } from "../api/shortUrl.api";
 import urlSchema from "../schema/url.schema";
 import { useSelector } from "react-redux";
+import { parseApiError } from "../utils/errorCodes";
 
 const Homepage = () => {
  const { loadingUser, user } = useSelector((state) => state.auth);
@@ -29,7 +30,23 @@ const Homepage = () => {
       const short_url = await createShortUrl(url, userId);
       setShortUrl(short_url);
     } catch (err) {
-      setError(err.message || "An error occurred while shortening the URL");
+      if (!err.apiCode) {
+        // Local zod validation error
+        setError(err.message || "An error occurred while shortening the URL");
+        return;
+      }
+
+      const { code, fieldErrors, message } = parseApiError(err);
+
+      if (code === "CONFLICT") {
+        setError("That custom slug is already taken. Try a different one.");
+      } else if (code === "URL_INVALID_TARGET") {
+        setError("That doesn't look like a valid http(s) URL.");
+      } else if (fieldErrors?.url) {
+        setError(fieldErrors.url);
+      } else {
+        setError(message);
+      }
     } finally {
       setLoading(false);
     }

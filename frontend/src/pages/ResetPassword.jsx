@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useParams } from "@tanstack/react-router";
 import { changePassword } from "../api/user.api";
+import { ErrorCodes, parseApiError } from "../utils/errorCodes";
 
 export default function ResetPassword() {
   const { token } = useParams({ strict: false });
@@ -26,14 +27,20 @@ export default function ResetPassword() {
 
     setLoading(true);
     setError("");
-    try{
-      const data = await changePassword(token, form.password);
-      setLoading(false);
+    try {
+      await changePassword(token, form.password);
       setDone(true);
-    }catch{
-      setError("Invalid Token")
-    }finally{
-      setLoading(false)
+    } catch (err) {
+      const { code, message } = parseApiError(err);
+      // AUTH_TOKEN_INVALID means the reset link itself is dead — everything
+      // else (validation, network) just shows the normal message.
+      setError(
+        code === ErrorCodes.AUTH_TOKEN_INVALID
+          ? "This reset link is invalid or has expired. Please request a new one."
+          : message,
+      );
+    } finally {
+      setLoading(false);
     }
   };
 

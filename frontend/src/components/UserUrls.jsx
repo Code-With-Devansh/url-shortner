@@ -5,6 +5,7 @@ import { Link } from "@tanstack/react-router";
 import { deleteUrl } from "../api/shortUrl.api";
 import { getUrls } from "../api/user.api";
 import { TriangleAlert, Search } from "lucide-react";
+import { parseApiError } from "../utils/errorCodes";
 
 
 const BASE = import.meta.env.VITE_API_URL;
@@ -147,6 +148,7 @@ const DeleteModal = ({ onConfirm, onCancel }) => (
 const UserUrls = () => {
   const [copied, setCopied] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
+  const [deleteError, setDeleteError] = useState("");
   const [search, setSearch] = useState("");
   const [sortIndex, setSortIndex] = useState(0);
   const [isActiveFilter, setIsActiveFilter] = useState(undefined);
@@ -224,11 +226,13 @@ const UserUrls = () => {
       setDeleteId(null);
       return { snapshot };
     },
-    onError: (_err, _id, ctx) => {
+    onError: (err, _id, ctx) => {
       queryClient.setQueryData(
         ["urls", debouncedSearch, sortBy, order, isActiveFilter],
         ctx.snapshot
       );
+      setDeleteError(parseApiError(err).message);
+      setTimeout(() => setDeleteError(""), 4000);
     },
   });
 
@@ -302,7 +306,7 @@ const UserUrls = () => {
         <div className="px-7 py-16 text-center">
           <TriangleAlert size={22} strokeWidth={1.75} className="mx-auto mb-3 text-red-500/70" />
           <p className="text-xs tracking-widest uppercase text-red-500/70">
-            {error?.message ?? "Failed to load links"}
+            {error ? parseApiError(error).message : "Failed to load links"}
           </p>
         </div>
       ) : isLoading ? (
@@ -343,6 +347,12 @@ const UserUrls = () => {
           </p>
         )}
       </div>
+
+      {deleteError && (
+        <p className="px-7 py-2 text-[10px] tracking-widest uppercase text-red-500/80 border-t border-zinc-800">
+          ⚠ {deleteError}
+        </p>
+      )}
 
       {/* ── Delete modal ── */}
       {deleteId && (

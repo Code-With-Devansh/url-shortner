@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import UserSchema from "../schema/auth.schema";
 import { forgotPassword } from "../api/user.api";
+import { parseApiError } from "../utils/errorCodes";
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState("");
@@ -11,18 +12,26 @@ export default function ForgotPassword() {
 
   const handleSubmit = async () => {
     if (!email.trim()) return setError("Please enter your email.");
-    const validated = UserSchema.pick({email:true}).safeParse({email});
-    if(validated.error){
-        return setError(validated.error);
+    const validated = UserSchema.pick({ email: true }).safeParse({ email });
+    if (!validated.success) {
+      return setError(validated.error.issues[0].message);
     }
 
     setLoading(true);
     setError("");
 
-    await forgotPassword(email);
-
-    setLoading(false);
-    setSent(true);
+    try {
+      // Note: the API always returns { success: true } here regardless of
+      // whether the email exists, to avoid leaking which emails are
+      // registered — so we never branch on an AUTH_USER_NOT_FOUND-style
+      // code for this endpoint, only on things like rate limiting.
+      await forgotPassword(email);
+      setSent(true);
+    } catch (err) {
+      setError(parseApiError(err).message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

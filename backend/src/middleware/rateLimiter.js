@@ -38,7 +38,7 @@ export const loginLimiter = rateLimit({
   store: createStore("login"),
   keyGenerator: (req) => {
     const email = (req.body?.email || "unknown").toLowerCase().trim();
-    return `${ipKeyGenerator(req)}:${email}`;
+    return `${ipKeyGenerator(req.ip)}:${email}`;
   },
 });
 
@@ -105,7 +105,7 @@ export const emailLimiter = rateLimit({
   max: 4,
   store: createStore("email"),
   keyGenerator: (req) => {
-    const email = (req.body?.email || ipKeyGenerator(req)).toLowerCase().trim();
+    const email = (req.body?.email || ipKeyGenerator(req.ip)).toLowerCase().trim();
     return email;
   },
 });
@@ -127,7 +127,7 @@ export const refreshLimiter = rateLimit({
   store: createStore("refresh"),
   keyGenerator: (req) => {
     const deviceId = req.cookies?.deviceId || "unknown-device";
-    return `${ipKeyGenerator(req)}:${deviceId}`;
+    return `${ipKeyGenerator(req.ip)}:${deviceId}`;
   },
 });
 
@@ -145,7 +145,7 @@ export const authenticatedApiLimiter = rateLimit({
   windowMs: 1 * 60 * 1000,
   max: 100,
   store: createStore("api"),
-  keyGenerator: (req) => req.user?.id || ipKeyGenerator(req),
+  keyGenerator: (req) => req.user?.id || ipKeyGenerator(req.ip),
 });
 
 

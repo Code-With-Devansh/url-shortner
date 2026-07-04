@@ -5,6 +5,8 @@ import { login } from "../store/slice/authSlice.js";
 import { Link, useNavigate } from "@tanstack/react-router";
 import UserSchema from "../schema/auth.schema.js";
 import { setAccessToken } from "../utils/axiosInstance.js";
+import { ErrorCodes, parseApiError } from "../utils/errorCodes.js";
+import { setPendingAuth } from "../utils/pendingAuth.js";
 const LoginPage = ({ setLogin }) => {
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -28,30 +30,50 @@ const LoginPage = ({ setLogin }) => {
         throw new Error(validationResult.error.issues[0].message);
       }
       const data = await loginUser(form.email, form.password);
-      dispatch(login({user:data}));
-      if(data.isVerified){
-        setLoading(false)
-        navigate({
-          to:'/dashboard'
-        })
-        return;
-      }
-      const verified = await sendVerificationMail(data.email);
-      if (verified.success) {
-        setLoading(false);
-        navigate({
-          to:'/auth/verify-email'
-        })
-      } else {
-        throw new Error(verified.message);
-      }
+      dispatch(login({ user: data }));
+      setLoading(false);
+      navigate({
+        to: "/dashboard",
+      });
+
       setError(null);
       setLoading(false);
     } catch (err) {
       setLoading(false);
-      setError(
-        err.userMessage || err.message || "Email or Password is incorrect",
-      );
+
+      // Local zod validation errors don't carry an apiCode — just show them.
+      if (!err.apiCode) {
+        setError(err.message || "Email or Password is incorrect");
+        return;
+      }
+
+      const { code, message } = parseApiError(err);
+
+      // Unverified accounts get routed to the verification flow instead of
+      // just seeing an error banner.
+      if (code === ErrorCodes.AUTH_EMAIL_NOT_VERIFIED) {
+        try {
+          const resendResult = await sendVerificationMail(form.email);
+          if (resendResult.success) {
+            // Same auto-login-after-verification flow as registration: stash
+            // the credentials in memory so EmailVerificationPage can log the
+            // user in the instant verify-status reports success.
+            setPendingAuth({
+              email: form.email,
+              password: form.password,
+              sessionToken: resendResult.data?.sessionToken,
+            });
+            navigate({ to: "/auth/verify-email" });
+            return;
+          }
+          setError(resendResult.message || message);
+        } catch (resendErr) {
+          setError(parseApiError(resendErr).message);
+        }
+        return;
+      }
+
+      setError(message);
     }
   };
 
@@ -104,7 +126,7 @@ const LoginPage = ({ setLogin }) => {
                   <label className="block text-[10px] tracking-[0.2em] uppercase text-zinc-400">
                     Password
                   </label>
-                   <Link
+                  <Link
                     href="/auth/forgot-password"
                     className="text-[10px] tracking-wider text-zinc-400 hover:text-lime-400 transition-colors duration-200 uppercase"
                   >

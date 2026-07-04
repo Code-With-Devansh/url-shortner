@@ -81,29 +81,47 @@ clickWorker.js  (BullMQ worker, concurrency 10, dedicated ioredis connection)
             HINCRBY analytics:{urlId}:{date}:{HH:MM}   total, country:*, device:*,
                                                           browser:*, os:*, referer:*, hour:*
             PFADD   analytics:{urlId}:{date}:{HH:MM}:visitors   visitorHash
-            EXPIRE  (NX) both keys → 10 min (safety net only — see below)
+            EXPIRE  (NX) both keys → 48h (safety net only — see below)
             SADD    analytics:active   analytics:{urlId}:{date}:{HH:MM}
-        - incrementClickCountToRedis(): separate HINCRBY on a `clicks` hash,
-          feeding the denormalized ShortUrl.clicks counter (see below).
    │
    ▼
 (scheduled every minute — see docker/crontab)
    │
-   ├─ analyticsWorker.js → for every key in `analytics:active`:
-   │     - flushAnalyticsKey(key) skips the key entirely (leaves it in the
-   │       set, untouched) if its minute hasn't fully elapsed plus a grace
-   │       period yet — i.e. it's the current, still-being-written minute.
-   │     - for keys that are due: reads the hash, parses dimension counts
-   │     - merges that minute's HLL sketch into the day's durable archive
-   │       key (PFMERGE, accumulates across every minute of the day) and
-   │       reads the day-so-far cardinality from it
-   │     - upserts (via $inc, not $set — see below) that minute's fragment
-   │       onto the day's ClickBucket doc, keyed on { url_id, date }
-   │     - deletes the minute's hash key, removes it from `analytics:active`
-   │     - invalidates any cached analytics results for that URL/user
+   └─ analyticsWorker.js → for every key in `analytics:active`:
+         - flushAnalyticsKey(key) skips the key entirely (leaves it in the
+           set, untouched) if its minute hasn't fully elapsed plus a grace
+           period yet — i.e. it's the current, still-being-written minute.
+         - for keys that are due: claimKey() runs a single Lua script that
+           atomically RENAMEs analytics:{...} → processing:{...} and moves
+           the key from the `analytics:active` set to the `processing:active`
+           sorted set (scored by claim time). The RENAME is the crash-safety
+           mechanism — the bucket's data exists under exactly one key at
+           every point in time, so a process dying mid-flush can't lose it
+           or double-process it; it's just left claimed for recovery.
+         - flushClaimedKey(processingKey): reads the claimed hash, PFMERGEs
+           that minute's HLL sketch into the day's durable archive key
+           (accumulates across every minute of the day), reads the
+           day-so-far cardinality from it, then in ONE MongoDB transaction:
+             - upserts (via $inc, not $set) that minute's fragment onto the
+               day's ClickBucket doc, keyed on { url_id, date }
+             - $inc's ShortUrl.clicks by that minute's total — same
+               transaction, same numbers, so it can't drift from ClickBucket
+         - on success: deletes the processing:* key, removes it from
+           processing:active, invalidates cached analytics results for that
+           URL/owner
+         - on failure (the transaction throws): the processing:* key and
+           its processing:active entry are deliberately left in place —
+           nothing is deleted, it just stays "claimed" until recovered
+
+(scheduled every 5 minutes, offset 2 min — see docker/crontab)
    │
-   └─ flushClicksWorker.js → reads the whole `clicks` hash, bulkWrite()'s
-        $inc onto ShortUrl.clicks per urlId, clears the hash
+   └─ analyticsRecoveryWorker.js → sweeps `processing:active` for any claim
+         older than a 5-minute stale threshold (a normal flush finishes in
+         well under that, so age past it means the claiming process likely
+         crashed or was killed mid-flush) and calls flushClaimedKey() again
+         for each one — this is the replay mechanism: a crash between claim
+         and commit doesn't lose click data, it just waits under a
+         processing:* key until this sweep picks it back up.
 ```
 
 **Visitor identification** is a hash of `ip:userAgent`, not a cookie or fingerprint — it's a coarse, privacy-conscious proxy for "distinct visitor" (two different people behind the same IP/UA combination collapse into one; the same person on two devices counts as two). This is fed into a HyperLogLog, so exact identity was never the goal — a reasonable unique estimate is.
@@ -163,18 +181,16 @@ This applies to `getUrlAnalyticsSummary` (across days, one URL), `getOverallAnal
 
 ## The Separate `ShortUrl.clicks` Counter
 
-`ShortUrl.clicks` is a second, independent click counter, deliberately decoupled from the `ClickBucket` analytics pipeline described above:
+`ShortUrl.clicks` is a second, denormalized click counter — kept for cheap "sort my links by popularity" queries (an indexed field, `{ user: 1, clicks: -1 }`) without aggregating `ClickBucket` documents on every page load. It **used to** be fed by its own independent Redis write buffer and cron job on a possibly-different schedule, which meant it could disagree with the `ClickBucket` analytics numbers at any given instant.
 
-- It's fed by its own Redis write buffer (`clicks` hash, `urlId -> count`) and its own cron job (`flushClicksWorker.js`), on a schedule that may differ from the analytics flush.
-- It exists purely to make "sort my links by popularity" cheap (an indexed field on `ShortUrl`, `{ user: 1, clicks: -1 }`) without aggregating `ClickBucket` documents on every page load.
-- It is **not** kept in lockstep with the analytics numbers — the two pipelines can disagree at any given instant (different flush cadence, different failure modes), and are only expected to eventually converge to the same underlying click count.
+**That's been fixed.** The separate `clicks` Redis hash and `flushClicksWorker.js` are gone. `ShortUrl.clicks` is now `$inc`'d inside the exact same MongoDB transaction, from the exact same aggregated numbers, as the `ClickBucket` write for that flush (`flushClaimedKey` in `src/cron/jobs/flushClaimedKey.js`) — one write path, not two. It's still not updated live on every click (same ~1–2 minute flush-interval lag as everything else on this pipeline), but it can no longer drift out of sync with `ClickBucket` the way an independently-scheduled counter could.
 
 ## Known Gaps / Accepted Risk
 
 - **Geolocation is a hardcoded stub** (`country = "IN"` for every click). The `countries` breakdown will only be meaningful once that's re-enabled.
 - **Staleness is now bounded at roughly 1–2 minutes** for `getUrlAnalyticsSummary`, `getOverallAnalyticsSummary`, and `getOverallAnalyticsTimeseries` — the per-minute flush cadence plus the 60s due-check grace period (see [Minute-Bucketed Buffering](#minute-bucketed-buffering)) together set the upper bound. `getUrlAnalyticsTimeseries` and both breakdown endpoints don't merge live data and lag by up to one flush interval (~1 minute) plus their own cache TTL (300s) — acceptable for those views, but worth knowing if that assumption ever changes.
 - **The leaderboard (`getOverallAnalyticsLeaderboard`) and "top URL" in the overall summary are Mongo-only** — they rank by `ClickBucket.total`, which doesn't include today's still-unflushed remainder. A URL that just went viral in the last minute won't show its very latest clicks in its rank until the next flush, even though the overall summary's raw totals already account for it.
-- **No durability guarantee between the Redis write buffer and MongoDB.** A click is only durable once its minute bucket becomes due and gets flushed into `ClickBucket`/`ShortUrl.clicks`; if the process crashes or Redis loses data (e.g. persistence disabled) before that happens, that bucket's clicks — and the raw event that produced them — are gone with no replay mechanism. With the current per-minute flush cadence this window is small (at most a couple of minutes per bucket) but not zero. The BullMQ click job itself is discarded on success (`removeOnComplete: { count: 0 }`), so there's no upstream log to replay from either. Mitigations worth considering: verify Redis AOF persistence is actually enabled (`appendfsync everysec` at minimum) rather than relying on RDB snapshots alone; and/or retain completed BullMQ click jobs for a rolling window instead of discarding on `removeOnComplete`, so a mismatch between the aggregate and expected volume can be detected and replayed. None of this is implemented today — it's an accepted trade-off given this is click-count analytics, not transactional data.
-- **`ShortUrl.clicks` and `ClickBucket` totals can diverge** at any given moment, since they're two independent pipelines flushed on potentially different schedules — don't treat one as validation for the other.
+- ~~**No durability guarantee between the Redis write buffer and MongoDB.**~~ — **Fixed.** Minute buckets are now claimed with an atomic `RENAME` (`analytics:{...}` → `processing:{...}`) before being flushed, so a bucket's data exists under exactly one Redis key at all times rather than being read-then-deleted with no fallback. If `flushClaimedKey`'s MongoDB transaction throws (e.g. the process crashes mid-flush), the `processing:*` key and its `processing:active` ZSET entry are deliberately left behind instead of cleaned up, and a new job — `analyticsRecoveryWorker.js`, running every 5 minutes offset by 2 — sweeps `processing:active` for any claim older than a 5-minute stale threshold and re-runs `flushClaimedKey` on it. That's the replay mechanism that was previously missing. Remaining exposure is narrower now: only clicks sitting in an `analytics:active` bucket that hasn't been claimed yet are still dependent on Redis's own persistence (AOF/RDB) surviving a crash — worth confirming `appendfsync` is actually configured as intended in production, since that's the one link in the chain this fix doesn't cover.
+- ~~**`ShortUrl.clicks` and `ClickBucket` totals can diverge**~~ — **Fixed**, see [The Separate `ShortUrl.clicks` Counter](#the-separate-shorturlclicks-counter) above — both are now written in one transaction per flush, from the same numbers.
 - **Visitor identity (`sha256(ip:userAgent)`) is a coarse proxy**, not a true unique-user identifier — shared IPs (NAT, corporate networks) undercount distinct people, and the same person across devices/browsers overcounts them. This is a deliberate privacy/simplicity trade-off (no cookies, no fingerprinting), not a bug, but worth knowing when interpreting the numbers.
 - **`by` breakdown dimensions are fixed to the six enumerated in `ALLOWED_BREAKDOWNS`** — adding a new dimension (e.g. a `city` field once geolocation is real) requires updating the Redis field-parsing logic in both `saveClickToRedis`/`flushAnalyticsKey`/`aggregateBucketKeys` and the `ClickBucket` schema, not just the allowlist.

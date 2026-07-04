@@ -4,6 +4,8 @@ import { useDispatch } from "react-redux";
 import { registerUser, sendVerificationMail } from "../api/user.api";
 import { login } from "../store/slice/authSlice";
 import UserSchema from "../schema/auth.schema";
+import { parseApiError } from "../utils/errorCodes";
+import { setPendingAuth } from "../utils/pendingAuth";
 const RegisterPage = ({ setLogin }) => {
   const [form, setForm] = useState({ name: "", email: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
@@ -24,20 +26,29 @@ const RegisterPage = ({ setLogin }) => {
         throw new Error(validationResult.error.issues[0].message);
       }
       const data = await registerUser(form.name, form.email, form.password);
-      console.log("#########")
-      console.log(data);
-      dispatch(login({user: data}));
+      dispatch(login({ user: data }));
+
       const verified = await sendVerificationMail(data.email);
-      if(verified.success){
-        navigate({
-          to:'/auth/verify-email'
+      if (verified.success) {
+        // Stash the credentials in memory (not redux/localStorage) so
+        // EmailVerificationPage can auto-login the moment the SSE
+        // verify-status stream reports success.
+        setPendingAuth({
+          email: form.email,
+          password: form.password,
+          sessionToken: verified.data?.sessionToken,
         });
-      }else{
-        throw new Error(verified.message)
+        navigate({ to: '/auth/verify-email' });
+      } else {
+        throw new Error(verified.message);
       }
       setError(null);
     } catch (err) {
-      setError(err.userMessage || err.message || "Registration failed");
+      if (!err.apiCode) {
+        setError(err.message || "Registration failed");
+      } else {
+        setError(parseApiError(err).message);
+      }
     } finally {
       setLoading(false);
     }

@@ -37,10 +37,10 @@ This doc covers the system end-to-end at a high level. For deep dives, see [`dat
   │  Atlas  │ │  Stack   │                      │  click   │ │  email  │
   └─────────┘ └──────────┘                     └──────────┘ └─────────┘
                   ▲
-                  │ daily / per-minute flush
+                  │ per-minute flush + 5-min recovery sweep
                   │
             ┌─────────────┐
-            │  cron        │  (analyticsWorker, flushClicksWorker)
+            │  cron        │  (analyticsWorker, analyticsRecoveryWorker)
             └─────────────┘
 ```
 
@@ -104,7 +104,7 @@ A single Redis Stack instance does multiple jobs at once, each with its own key 
 - **Session cache** — `refresh:<userId>:<deviceId>`, a fast-path mirror of the MongoDB `RefreshToken` collection.
 - **Bloom filter** — `urls:bloom`, the redirect existence check.
 - **Rate limit counters** — `ratelimit:*` (token bucket) and the `rate-limit-redis` store used by `express-rate-limit`.
-- **Click write-buffer** — `analytics:<urlId>:<date>` hashes + `:visitors` HLLs, plus an `analytics:active` set tracking which buckets currently have unflushed data.
+- **Click write-buffer** — `analytics:<urlId>:<date>:<HH:MM>` per-minute hashes + `:visitors` HLLs, plus an `analytics:active` set (and, once claimed for flushing, a `processing:*` key + `processing:active` set) tracking which buckets currently have unflushed data.
 - **SSE pub/sub channel** — `sse:notify`, used to fan out email-verification events across replicas (see below).
 
 Redis Stack specifically (not vanilla Redis) is required here because of the Bloom filter (`BF.*`) and HyperLogLog (`PF*`) commands used on the redirect hot path and in analytics.
@@ -123,7 +123,7 @@ Schema details, indexes, and Redis key reference live in [`database.md`](./datab
 ### Deployment shape
 
 - API replicas, both workers, and the cron container are all built from variants of the same image (`Dockerfile` / `Dockerfile.cron`) and run via Docker Compose, fronted by nginx on a single EC2 VPS.
-- The cron container runs Alpine's built-in `crond`, scheduling the analytics flush and click-count flush jobs as separate Node invocations rather than long-running processes.
+- The cron container runs Alpine's built-in `crond`, scheduling the per-minute analytics flush (`analyticsWorker.js`, which also updates `ShortUrl.clicks` in the same transaction) and a 5-minute crash-recovery sweep (`analyticsRecoveryWorker.js`) as separate Node invocations rather than long-running processes.
 - The frontend is a separately deployed React/Vite app on Vercel, talking to the API cross-origin (hence `credentials: true` CORS and `sameSite: "none"` cookies in production).
 
 Full deployment topology, environment variables, and nginx config are in [`deployment.md`](./deployment.md).
@@ -157,14 +157,18 @@ GET /:shortId
    ...asynchronously, in worker-click...
 
   → parse user agent, hash (ip, ua) into a visitor hash, resolve country
-  → HINCRBY counters + PFADD visitor hash into today's Redis bucket
-  → mark today's bucket key as "active" (for the flush cron to find)
+  → HINCRBY counters + PFADD visitor hash into this minute's Redis bucket
+  → mark this minute's bucket key as "active" (for the flush cron to find)
 
-   ...once a day, in the cron container...
+   ...every minute, in the cron container...
 
-  → for each active bucket: read it from Redis, upsert it into MongoDB
-    as a ClickBucket document, delete the Redis key, invalidate any
-    cached analytics responses for that URL/user
+  → for each due active bucket (past its minute + grace period): atomically
+    claim it (Redis RENAME), read it, and in one MongoDB transaction upsert
+    it into a ClickBucket document AND $inc ShortUrl.clicks, then delete the
+    claimed key and invalidate cached analytics responses for that URL/owner
+  → a claim left unresolved for 5+ minutes (crashed flush) is picked back up
+    and re-flushed by a separate recovery sweep, so a crash mid-flush can't
+    silently drop that minute's clicks
 ```
 
 ## Where to go next
