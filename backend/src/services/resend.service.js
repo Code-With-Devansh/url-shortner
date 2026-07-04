@@ -1,6 +1,7 @@
 import { Resend } from 'resend';
 import { emailVerificationTemplate } from '../templates/EmailVerificationHtml.js';
 import config from '../config/index.js';
+import { forgotPasswordTemplate } from '../templates/ForgotPasswordHTML.js';
 
 const resend = new Resend(config.email.resendApiKey);
 
@@ -16,16 +17,12 @@ export const sendEmailVerificationMail = async (name, email, link) =>{
   }
 
 };
-export const sendpasswordResetMail = async (to, link) =>{
+export const sendpasswordResetMail = async (name, email, link) =>{
   const { data, error } = await resend.emails.send({
     from: "Pixel Mart <no-reply@pixel-mart.in>",
-    to: [to],
+    to: [email],
     subject: 'Reset Password',
-    html: `
-  <h2>Reset Password</h2>
-  <p>Click below to verify your email:</p>
-  <a href="${link}">Verify Email</a>
-`,
+    html: forgotPasswordTemplate(name, email, link)
   });
 
   if (error) {

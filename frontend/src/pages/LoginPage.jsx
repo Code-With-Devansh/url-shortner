@@ -63,7 +63,7 @@ const LoginPage = ({ setLogin }) => {
             setPendingAuth({
               email: form.email,
               password: form.password,
-              sessionToken: resendResult.data?.sessionToken,
+              sessionToken: resendResult.data?.token,
             });
             navigate({ to: "/auth/verify-email" });
             return;

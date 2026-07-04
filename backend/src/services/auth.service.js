@@ -182,9 +182,8 @@ export const readAndConsumeClaimToken = async (claimToken) => {
   return readAndDeleteClaimRecord(hashedToken);
 };
 
-export const generateAndStorePasswordResetToken = async (email) => {
+export const generateAndStorePasswordResetToken = async (user) => {
   const { token, hashedToken } = generateVerificationToken();
-  const user = await findUserByEmail(email);
   if (!user) {
     return null;
   }
@@ -197,6 +196,15 @@ export const queueEmailVerification = async (user) => {
   await emailQueue.add("send-verification-link", {
     to: user.email,
     template: "verification-link",
+    name: user.name,
+    token: token,
+  });
+};
+export const queuePasswordReset = async (user) => {
+  const token = await generateAndStorePasswordResetToken(user);
+  await emailQueue.add("send-ResetPassword-link", {
+    to: user.email,
+    template: "forgot-password",
     name: user.name,
     token: token,
   });

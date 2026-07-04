@@ -1,4 +1,4 @@
-export const emailVerificationTemplate = (name, email, link) => {
+export const forgotPasswordTemplate = (name, email, link) => {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6,10 +6,9 @@ export const emailVerificationTemplate = (name, email, link) => {
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <meta name="color-scheme" content="dark light">
   <meta name="supported-color-schemes" content="dark light">
-  <title>Verify your email — snip</title>
+  <title>Reset your password — snip</title>
 </head>
 <body style="margin:0; padding:0; background-color:#0a0a0a;">
-  <!-- Full-bleed background table: bgcolor works in Gmail/Outlook where body CSS does not -->
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#0a0a0a" style="background-color:#0a0a0a;">
     <tr>
       <td align="center" style="padding:40px 16px;">
@@ -35,14 +34,13 @@ export const emailVerificationTemplate = (name, email, link) => {
                 <tr>
                   <td style="padding:40px 40px 36px;">
 
-                    <!-- Icon -->
+                    <!-- Icon: padlock, same solid-circle treatment as the verification email -->
                     <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 24px;">
                       <tr>
                         <td width="56" height="56" align="center" valign="middle" bgcolor="#1a2400" style="background-color:#1a2400; border:1px solid #3d5200; border-radius:50%;">
-                          <!-- solid fill instead of thin stroke so it always renders, even if client strips SVG partially -->
-                          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                              stroke="#aaff00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="5" y="11" width="14" height="10" rx="2" stroke="#aaff00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M8 11V7a4 4 0 018 0v4" stroke="#aaff00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                           </svg>
                         </td>
                       </tr>
@@ -50,14 +48,13 @@ export const emailVerificationTemplate = (name, email, link) => {
 
                     <!-- Heading -->
                     <h1 style="margin:0 0 8px; font-family:'SF Mono', Consolas, Menlo, 'Courier New', monospace; font-size:22px; font-weight:900; color:#ffffff; letter-spacing:-0.5px; text-align:center;">
-                      Verify your email
+                      Reset your password
                     </h1>
 
-                    <!-- Subtext: raised from #555 to #a8a8a8 for real contrast on #111 -->
                     <p style="margin:0 0 32px; font-family:'SF Mono', Consolas, Menlo, 'Courier New', monospace; font-size:13px; color:#a8a8a8; text-align:center; line-height:1.8; letter-spacing:0.03em;">
-                      Hey <span style="color:#aaff00; font-weight:700;">${name}</span>, thanks for signing up.<br/>
-                      Click the button below to verify<br/>
-                      <span style="color:#aaff00; font-weight:700;">${email}</span> and activate your account.
+                      Hey <span style="color:#aaff00; font-weight:700;">${name}</span>, we got a request to reset<br/>
+                      the password for <span style="color:#aaff00; font-weight:700;">${email}</span>.<br/>
+                      Click below to choose a new one.
                     </p>
 
                     <!-- CTA Button -->
@@ -65,7 +62,7 @@ export const emailVerificationTemplate = (name, email, link) => {
                       <tr>
                         <td align="center" bgcolor="#aaff00" style="background-color:#aaff00; border-radius:4px;">
                           <a href="${link}" target="_blank" style="display:inline-block; padding:14px 36px; font-family:'SF Mono', Consolas, Menlo, 'Courier New', monospace; font-size:12px; font-weight:700; letter-spacing:0.15em; text-transform:uppercase; color:#0a0a0a; text-decoration:none;">
-                            Verify my email &rarr;
+                            Reset my password &rarr;
                           </a>
                         </td>
                       </tr>
@@ -88,11 +85,11 @@ export const emailVerificationTemplate = (name, email, link) => {
                       </tr>
                     </table>
 
-                    <!-- Expiry notice -->
+                    <!-- Security notice: amber-ish tint via same green-tinted box, but wording flags non-action -->
                     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:24px;">
                       <tr>
                         <td bgcolor="#16210a" style="background-color:#16210a; border:1px solid #3d5200; border-radius:4px; padding:12px 16px; font-family:'SF Mono', Consolas, Menlo, 'Courier New', monospace; font-size:11px; color:#c8c8c8; letter-spacing:0.04em; line-height:1.7;">
-                          &#9201; This link expires in <strong style="color:#aaff00; font-weight:700;">10 minutes</strong>. If you didn't create a [snip] account, you can safely ignore this email.
+                          &#9201; This link expires in <strong style="color:#aaff00; font-weight:700;">10 minutes</strong>. If you didn't request a password reset, you can safely ignore this email &mdash; your password won't change.
                         </td>
                       </tr>
                     </table>

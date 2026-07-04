@@ -43,7 +43,7 @@ const RegisterPage = ({ setLogin }) => {
         setPendingAuth({
           email: form.email,
           password: form.password,
-          sessionToken: verified.data?.sessionToken,
+          sessionToken: verified.data?.token,
         });
         navigate({ to: '/auth/verify-email' });
       } else {

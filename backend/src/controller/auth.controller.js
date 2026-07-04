@@ -27,6 +27,7 @@ import {
   loginUser,
   logoutUser,
   queueEmailVerification,
+  queuePasswordReset,
   refreshAccessTokenService,
   registerUser,
   sendVerificationLinkService,
@@ -186,14 +187,8 @@ export const forgotPassword = tryCatch(async (req, res, next) => {
   if (!validated.success) {
     throw new ValidationError(generateValidationErrors(validated));
   }
-  const token = await generateAndStorePasswordResetToken(email);
-  if (!token) {
-    return res.send(toAuthResponseDTO("Email sent successfully."));
-  }
-  await sendpasswordResetMail(
-    email,
-    config.app.frontendUrl + `auth/change-password/${token}`,
-  );
+  const user = await findUserByEmail(email);
+  await queuePasswordReset(user);
   res.send(toAuthResponseDTO("Email sent successfully."));
 }, "forgot Password");
 
