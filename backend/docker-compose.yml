@@ -4,8 +4,6 @@ services:
     restart: unless-stopped
     environment:
       - REDIS_ARGS=--requirepass ${REDIS_PASSWORD}
-    ports:
-      - "6379:6379"
     volumes:
       - redis_data:/data
     networks:
@@ -40,31 +38,31 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
-  # server2:
-  #     container_name: api2
-  #     build:
-  #       context: .
-  #       dockerfile: Dockerfile
-  #     restart: unless-stopped
-  #     env_file: .env
-  #     environment:
-  #       - SERVICE_NAME=api
-  #       - REDIS_HOST=redis
-  #       - REDIS_PORT=6379
-  #       - PORT=5000
-  #     ports:
-  #       - "5001:5000"
-  #     depends_on:
-  #       redis:
-  #         condition: service_healthy
-  #     networks:
-  #       - internal
-  #     healthcheck:
-  #       test: ["CMD", "wget", "-qO-", "http://localhost:5000/api/health"]
-  #       interval: 15s
-  #       timeout: 5s
-  #       retries: 5
-  #       start_period: 10s
+  server2:
+      container_name: api2
+      build:
+        context: .
+        dockerfile: Dockerfile
+      restart: unless-stopped
+      env_file: .env
+      environment:
+        - SERVICE_NAME=api
+        - REDIS_HOST=redis
+        - REDIS_PORT=6379
+        - PORT=5000
+      ports:
+        - "5001:5000"
+      depends_on:
+        redis:
+          condition: service_healthy
+      networks:
+        - internal
+      healthcheck:
+        test: ["CMD", "wget", "-qO-", "http://localhost:5000/api/health"]
+        interval: 15s
+        timeout: 5s
+        retries: 5
+        start_period: 10s
   worker-click:
     container_name: worker-click
     build:
@@ -117,23 +115,23 @@ services:
         condition: service_healthy
     networks:
       - internal
-  # vector:
-  #   image: timberio/vector:latest-alpine
-  #   restart: unless-stopped
-  #   volumes:
-  #     - /var/run/docker.sock:/var/run/docker.sock:ro
-  #     - ./vector/vector.yaml:/etc/vector/vector.yaml:ro
-  #   environment:
-  #     AXIOM_TOKEN: ${AXIOM_TOKEN}
-  #     AXIOM_DATASET: ${AXIOM_DATASET}
-  #   depends_on:
-  #     - server
-  #     - server2
-  #     - worker-click
-  #     - worker-email
-  #     - cron
-  #   networks:
-  #     - internal
+  vector:
+    image: timberio/vector:latest-alpine
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./vector/vector.yaml:/etc/vector/vector.yaml:ro
+    environment:
+      AXIOM_TOKEN: ${AXIOM_TOKEN}
+      AXIOM_DATASET: ${AXIOM_DATASET}
+    depends_on:
+      - server
+      - server2
+      - worker-click
+      - worker-email
+      - cron
+    networks:
+      - internal
 
 networks:
   internal:
