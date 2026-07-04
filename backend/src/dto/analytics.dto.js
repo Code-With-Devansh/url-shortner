@@ -9,7 +9,9 @@ export const toUrlSummary = (data) => ({
   success: true,
   data: {
     ...data,
-    shortUrl: config.app.baseUrl + data.shortUrl,
+    ...(data.shortUrl && {
+      shortUrl: config.app.baseUrl + data.shortUrl,
+    }),
   },
 });
 
@@ -17,13 +19,16 @@ export const toOverallSummaryDTO = (data) => ({
   success: true,
   data: {
     ...data,
-    topUrl:{
-      shortUrl: config.app.baseUrl + data.topUrl.shortUrl
-    }
+    ...(data.topUrl && {
+      topUrl: config.app.baseUrl + data.topUrl.shortUrl,
+    }),
   },
 });
 
-export const overallLeaderboardDTO = (data)=>({
-  success:true,
-  data:data.map((e)=>{return {...e, shortUrl:config.app.baseUrl + e.shortUrl}})
-})
+export const overallLeaderboardDTO = (data) => ({
+  success: true,
+  data: (data ?? []).map((e) => ({
+    ...e,
+    shortUrl: config.app.baseUrl + e.shortUrl,
+  })),
+});

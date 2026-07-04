@@ -6,6 +6,7 @@ import { login } from "../store/slice/authSlice";
 import UserSchema from "../schema/auth.schema";
 import { parseApiError } from "../utils/errorCodes";
 import { setPendingAuth } from "../utils/pendingAuth";
+import { useFieldErrorFlash } from "../hooks/useFieldErrorFlash";
 const RegisterPage = ({ setLogin }) => {
   const [form, setForm] = useState({ name: "", email: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
@@ -13,8 +14,10 @@ const RegisterPage = ({ setLogin }) => {
   const [error, setError] = useState(null);
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const { isErrored, flash: flashFieldError, clear: clearFieldError } = useFieldErrorFlash();
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
+    clearFieldError();
   };
 
   const handleSubmit = async (e) => {
@@ -23,7 +26,11 @@ const RegisterPage = ({ setLogin }) => {
     try {
       const validationResult = UserSchema.safeParse(form);
       if (!validationResult.success) {
-        throw new Error(validationResult.error.issues[0].message);
+        const issue = validationResult.error.issues[0];
+        setError(issue.message);
+        flashFieldError(issue.path[0]);
+        setLoading(false);
+        return;
       }
       const data = await registerUser(form.name, form.email, form.password);
       dispatch(login({ user: data }));
@@ -47,7 +54,15 @@ const RegisterPage = ({ setLogin }) => {
       if (!err.apiCode) {
         setError(err.message || "Registration failed");
       } else {
-        setError(parseApiError(err).message);
+        const { code, fieldErrors, message } = parseApiError(err);
+        setError(message);
+        if (code === "AUTH_USER_ALREADY_EXISTS") {
+          flashFieldError("email");
+        } else if (fieldErrors && Object.keys(fieldErrors).length > 0) {
+          // Backend field names (name/email/password) already match the
+          // form's, so no mapping needed here (unlike the URL create form).
+          flashFieldError(Object.keys(fieldErrors)[0]);
+        }
       }
     } finally {
       setLoading(false);
@@ -101,7 +116,11 @@ const RegisterPage = ({ setLogin }) => {
                 placeholder="John Doe"
                 value={form.name}
                 onChange={handleChange}
-                className="w-full bg-zinc-950 border border-zinc-800 rounded px-4 py-3.5 text-sm text-zinc-100 placeholder-zinc-600 outline-none focus:border-lime-400 focus:ring-2 focus:ring-lime-400/10 transition-all duration-200"
+                className={`w-full bg-zinc-950 border rounded px-4 py-3.5 text-sm text-zinc-100 placeholder-zinc-600 outline-none focus:ring-2 transition-all duration-200 ${
+                  isErrored("name")
+                    ? "border-red-500 ring-2 ring-red-500/20 animate-pulse"
+                    : "border-zinc-800 focus:border-lime-400 focus:ring-lime-400/10"
+                }`}
               />
             </div>
 
@@ -116,7 +135,11 @@ const RegisterPage = ({ setLogin }) => {
                 placeholder="you@example.com"
                 value={form.email}
                 onChange={handleChange}
-                className="w-full bg-zinc-950 border border-zinc-800 rounded px-4 py-3.5 text-sm text-zinc-100 placeholder-zinc-600 outline-none focus:border-lime-400 focus:ring-2 focus:ring-lime-400/10 transition-all duration-200"
+                className={`w-full bg-zinc-950 border rounded px-4 py-3.5 text-sm text-zinc-100 placeholder-zinc-600 outline-none focus:ring-2 transition-all duration-200 ${
+                  isErrored("email")
+                    ? "border-red-500 ring-2 ring-red-500/20 animate-pulse"
+                    : "border-zinc-800 focus:border-lime-400 focus:ring-lime-400/10"
+                }`}
               />
             </div>
 
@@ -132,7 +155,11 @@ const RegisterPage = ({ setLogin }) => {
                   placeholder="••••••••"
                   value={form.password}
                   onChange={handleChange}
-                  className="w-full bg-zinc-950 border border-zinc-800 rounded px-4 py-3.5 pr-12 text-sm text-zinc-100 placeholder-zinc-600 outline-none focus:border-lime-400 focus:ring-2 focus:ring-lime-400/10 transition-all duration-200"
+                  className={`w-full bg-zinc-950 border rounded px-4 py-3.5 pr-12 text-sm text-zinc-100 placeholder-zinc-600 outline-none focus:ring-2 transition-all duration-200 ${
+                    isErrored("password")
+                      ? "border-red-500 ring-2 ring-red-500/20 animate-pulse"
+                      : "border-zinc-800 focus:border-lime-400 focus:ring-lime-400/10"
+                  }`}
                 />
                 <button
                   type="button"

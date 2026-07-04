@@ -82,6 +82,10 @@ const DEFAULT_MESSAGES = {
  */
 export const parseApiError = (err) => {
   const code = err?.apiCode ?? null;
+  console.log("#########")
+  console.log(code);
+  console.log((code && DEFAULT_MESSAGES[code]))
+  console.log(DEFAULT_MESSAGES[code])
   const fieldErrors = err?.fieldErrors ?? null;
   const status = err?.response?.status ?? null;
   const message =

@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import StatCard from "../components/StatCard";
 import { useSelector } from "react-redux";
 import UserUrls from "../components/UserUrls";
@@ -9,15 +9,46 @@ import urlSchema from "../schema/url.schema.js";
 import { getOverallSummary, getOverallTimeseries } from "../api/analytics.api";
 import TimeseriesChart from "../components/analytics/TimeseriesChart";
 import { Link2, Eye, TrendingUp } from "lucide-react";
+import { ErrorCodes, parseApiError } from "../utils/errorCodes";
+
+// Backend validation errors are keyed by request-body field name (`url`,
+// `slug`), but the form/schema use different names (`full_url`,
+// `short_url`) - this bridges the two so highlighting always lands on the
+// right input regardless of which side named the field.
+const BACKEND_TO_FORM_FIELD = {
+  url: "full_url",
+  slug: "short_url",
+};
+
+const FIELD_HIGHLIGHT_MS = 2000;
 
 export default function DashboardPage() {
   const BASE_URL = import.meta.env.VITE_API_URL;
   const [form, setForm] = useState({ full_url: "", short_url: "" });
   const [formError, setFormError] = useState("");
+  // Which form field to briefly highlight as the source of a validation
+  // error (e.g. "full_url" or "short_url"), cleared automatically after
+  // FIELD_HIGHLIGHT_MS.
+  const [errorField, setErrorField] = useState(null);
+  const errorFieldTimeoutRef = useRef(null);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const auth = useSelector((state) => state.auth);
+
+  const flashFieldError = (field) => {
+    if (errorFieldTimeoutRef.current) clearTimeout(errorFieldTimeoutRef.current);
+    setErrorField(field);
+    errorFieldTimeoutRef.current = setTimeout(() => {
+      setErrorField(null);
+    }, FIELD_HIGHLIGHT_MS);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (errorFieldTimeoutRef.current) clearTimeout(errorFieldTimeoutRef.current);
+    };
+  }, []);
 
   // Quick analytics — fixed 7-day window, full detail lives on /analytics
   const { data: summary, isLoading: summaryLoading } = useQuery({
@@ -39,12 +70,24 @@ export default function DashboardPage() {
       navigate({ to: "/auth" });
       return;
     }
+
+    setFormError("");
+
+    // Client-side validation first, using safeParse so we can pinpoint
+    // exactly which field to highlight instead of just throwing.
+    const schema =
+      form.short_url === ""
+        ? urlSchema.pick({ full_url: true })
+        : urlSchema;
+    const validationResult = schema.safeParse(form);
+    if (!validationResult.success) {
+      const issue = validationResult.error.issues[0];
+      setFormError(issue.message);
+      flashFieldError(issue.path[0]);
+      return;
+    }
+
     try {
-      if (form.short_url == "") {
-        urlSchema.pick({ full_url: true }).parse(form);
-      } else {
-        urlSchema.parse(form);
-      }
       setLoading(true);
       const newShortUrl = await createShortUrl(
         form.full_url,
@@ -57,7 +100,23 @@ export default function DashboardPage() {
         setForm({ full_url: "", short_url: "" });
       }
     } catch (err) {
-      setFormError(err?.errors?.[0]?.message ?? err.message);
+      const { code, fieldErrors, message } = parseApiError(err);
+
+      if (code === ErrorCodes.CONFLICT) {
+        setFormError("That custom slug is already taken. Try a different one.");
+        flashFieldError("short_url");
+      } else if (code === ErrorCodes.URL_INVALID_TARGET) {
+        setFormError("That doesn't look like a valid http(s) URL.");
+        flashFieldError("full_url");
+      } else if (fieldErrors && Object.keys(fieldErrors).length > 0) {
+        // VALIDATION_FAILED - backend names fields `url`/`slug`; map back to
+        // the form's `full_url`/`short_url` for highlighting purposes.
+        const [backendField, fieldMessage] = Object.entries(fieldErrors)[0];
+        setFormError(fieldMessage);
+        flashFieldError(BACKEND_TO_FORM_FIELD[backendField] ?? backendField);
+      } else {
+        setFormError(message);
+      }
     } finally {
       setLoading(false);
     }
@@ -148,8 +207,13 @@ export default function DashboardPage() {
                   onChange={(e) => {
                     setForm({ ...form, full_url: e.target.value });
                     setFormError("");
+                    setErrorField(null);
                   }}
-                  className="w-full bg-zinc-950 border border-zinc-800 rounded px-4 py-3 text-sm text-zinc-100 placeholder-zinc-600 outline-none focus:border-lime-400 focus:ring-2 focus:ring-lime-400/10 transition-all duration-200"
+                  className={`w-full bg-zinc-950 border rounded px-4 py-3 text-sm text-zinc-100 placeholder-zinc-600 outline-none focus:ring-2 transition-all duration-200 ${
+                    errorField === "full_url"
+                      ? "border-red-500 ring-2 ring-red-500/20 animate-pulse"
+                      : "border-zinc-800 focus:border-lime-400 focus:ring-lime-400/10"
+                  }`}
                 />
               </div>
 
@@ -158,7 +222,11 @@ export default function DashboardPage() {
                 <label className="block text-[9px] tracking-[0.15em] uppercase text-zinc-400 mb-1.5">
                   Custom Slug
                 </label>
-                <div className="flex items-center bg-zinc-950 border border-zinc-800 rounded focus-within:border-lime-400 focus-within:ring-2 focus-within:ring-lime-400/10 transition-all duration-200 overflow-hidden">
+                <div className={`flex items-center bg-zinc-950 border rounded transition-all duration-200 overflow-hidden ${
+                  errorField === "short_url"
+                    ? "border-red-500 ring-2 ring-red-500/20 animate-pulse"
+                    : "border-zinc-800 focus-within:border-lime-400 focus-within:ring-2 focus-within:ring-lime-400/10"
+                }`}>
                   <span className="pl-4 pr-1 text-xs text-zinc-400 whitespace-nowrap shrink-0">
                     {BASE_URL}
                   </span>
@@ -172,6 +240,7 @@ export default function DashboardPage() {
                         short_url: e.target.value.replace(/\s/g, "-"),
                       });
                       setFormError("");
+                      setErrorField(null);
                     }}
                     className="flex-1 bg-transparent py-3 pr-4 text-sm text-lime-400 placeholder-zinc-600 outline-none min-w-0"
                   />

@@ -1,19 +1,42 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import UrlForm from "../components/UrlForm";
 import axios from "axios";
 import { createShortUrl } from "../api/shortUrl.api";
 import urlSchema from "../schema/url.schema";
 import { useSelector } from "react-redux";
-import { parseApiError } from "../utils/errorCodes";
+import { useQueryClient } from "@tanstack/react-query";
+import { ErrorCodes, parseApiError } from "../utils/errorCodes";
+
+const FIELD_HIGHLIGHT_MS = 2000;
 
 const Homepage = () => {
  const { loadingUser, user } = useSelector((state) => state.auth);
   const userId = loadingUser ? null : user?.id;
+  const queryClient = useQueryClient();
   const [shortUrl, setShortUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
   const [url, setUrl] = useState("");
+  // Only one field here, but kept as a boolean flash flag (rather than
+  // "always show" styling) so it's consistent with the dashboard's
+  // multi-field highlight behavior: briefly draw the eye, then fade.
+  const [hasFieldError, setHasFieldError] = useState(false);
+  const fieldErrorTimeoutRef = useRef(null);
+
+  const flashFieldError = () => {
+    if (fieldErrorTimeoutRef.current) clearTimeout(fieldErrorTimeoutRef.current);
+    setHasFieldError(true);
+    fieldErrorTimeoutRef.current = setTimeout(() => {
+      setHasFieldError(false);
+    }, FIELD_HIGHLIGHT_MS);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (fieldErrorTimeoutRef.current) clearTimeout(fieldErrorTimeoutRef.current);
+    };
+  }, []);
 
   const handleShorten = async () => {
     
@@ -24,27 +47,42 @@ const Homepage = () => {
     try {
       const validationResult = urlSchema.pick({ full_url: true }).safeParse({ full_url: url });
       if (!validationResult.success) {
-        throw new Error(validationResult.error.issues[0].message);
+        setError(validationResult.error.issues[0].message);
+        flashFieldError();
+        return;
       }
       // get userid from redux store
       const short_url = await createShortUrl(url, userId);
       setShortUrl(short_url);
+      // Invalidates every ["urls", ...] query (UserUrls' list, whatever the
+      // current search/sort/filter params are) so the new link shows up
+      // without the person needing to manually refresh.
+      queryClient.invalidateQueries({ queryKey: ["urls"] });
     } catch (err) {
       if (!err.apiCode) {
-        // Local zod validation error
+        // Shouldn't normally happen here (validation is handled above and
+        // returns early), but keep a safe fallback just in case.
         setError(err.message || "An error occurred while shortening the URL");
+        flashFieldError();
         return;
       }
 
       const { code, fieldErrors, message } = parseApiError(err);
 
-      if (code === "CONFLICT") {
+      if (code === ErrorCodes.CONFLICT) {
+        // Slug conflicts can't actually come from this form (no custom slug
+        // field here), but handle it defensively without flashing the URL
+        // input - that's not what's wrong.
         setError("That custom slug is already taken. Try a different one.");
-      } else if (code === "URL_INVALID_TARGET") {
+      } else if (code === ErrorCodes.URL_INVALID_TARGET) {
         setError("That doesn't look like a valid http(s) URL.");
+        flashFieldError();
       } else if (fieldErrors?.url) {
         setError(fieldErrors.url);
+        flashFieldError();
       } else {
+        // Non-field errors (rate limiting, server errors) get the message
+        // without highlighting the input - it's not the field's fault.
         setError(message);
       }
     } finally {
@@ -92,6 +130,8 @@ const Homepage = () => {
               setError={setError}
               loading={loading}
               setLoading={setLoading}
+              hasFieldError={hasFieldError}
+              clearFieldError={() => setHasFieldError(false)}
             />
             {/* Result section */}
             {shortUrl && (

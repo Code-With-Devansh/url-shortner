@@ -86,10 +86,24 @@ axiosInstance.interceptors.response.use(
 
         const is401 = error.response?.status === 401;
         const isRefreshEndpoint = originalRequest.url?.includes("/auth/refresh");
+        // These endpoints are unauthenticated by nature - a 401 from them
+        // means "bad credentials" / "bad token", not "your session expired".
+        // Attempting a refresh here is pointless (there's no session to
+        // refresh) and was clobbering the real error code with
+        // AUTH_SESSION_EXPIRED.
+        const isPublicAuthEndpoint = [
+            "/auth/login",
+            "/auth/register",
+            "/auth/refresh",
+            "/auth/forgot-password",
+            "/auth/reset-password",
+            "/auth/verify-email",
+            "/auth/send-verification-link",
+        ].some((path) => originalRequest.url?.includes(path));
         const alreadyRetried = originalRequest._retry;
 
         // Attempt token refresh on 401, but not for the refresh endpoint itself
-        if (is401 && !isRefreshEndpoint && !alreadyRetried) {
+        if (is401 && !isRefreshEndpoint && !isPublicAuthEndpoint && !alreadyRetried) {
             if (isRefreshing) {
                 // Queue this request until refresh completes
                 return new Promise((resolve, reject) => {
@@ -122,11 +136,17 @@ axiosInstance.interceptors.response.use(
                 processQueue(refreshError, null);
                 clearAccessToken();
                 annotateApiError(refreshError);
-                // Refresh failing means the session is genuinely over
-                // (see API.md: 401 AUTH_SESSION_EXPIRED) regardless of what
-                // code the refresh call itself returned.
-                refreshError.apiCode = "AUTH_SESSION_EXPIRED";
-                refreshError.userMessage = "Session expired. Please log in again.";
+                // Trust whatever code the refresh endpoint actually returned
+                // (e.g. AUTH_TOKEN_INVALID, RATE_LIMITED_REFRESH) - only
+                // fall back to a generic "session expired" when the response
+                // didn't carry a code at all (network error, unexpected
+                // shape, etc).
+                if (!refreshError.apiCode) {
+                    refreshError.apiCode = "AUTH_SESSION_EXPIRED";
+                }
+                if (!refreshError.response?.data?.message) {
+                    refreshError.userMessage = "Session expired. Please log in again.";
+                }
                 // Dispatch a custom event so your app can redirect to login
                 window.dispatchEvent(new Event("auth:logout"));
                 return Promise.reject(refreshError);

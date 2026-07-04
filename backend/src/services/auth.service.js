@@ -28,6 +28,7 @@ import {
   conflictError,
   NotFoundError,
   UnauthorizedError,
+  ValidationError,
 } from "../utils/appError.js";
 import { ErrorCodes } from "../utils/errorCodes.js";
 import {
@@ -117,7 +118,7 @@ export const sendVerificationLinkService = async (email) => {
   const sessionToken = generateRandomToken();
   const user = await findUserByEmail(email);
   if (!user || user.isVerified) {
-    return res.json(toVerificationLinkResponseDTO(sessionToken));
+    return sessionToken
   }
   await storeSessionToken(user, sessionToken);
   await queueEmailVerification(user);
@@ -128,7 +129,7 @@ export const verifyEmailService = async(token)=>{
   const user = await verifyEmailVerificationToken(token);
     if (!user) {
       throw new ValidationError(
-        { token: "Invalid Token" },
+        { token: "Invalid Token" }, 
         ErrorCodes.AUTH_EMAIL_VERIFICATION_FAILED,
       );
     }

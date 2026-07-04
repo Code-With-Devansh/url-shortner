@@ -21,6 +21,8 @@ export default function EmailVerificationPage() {
   const [resent, setResent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
+  console.log(sessionToken)
+  console.log(email)
 
   // If someone lands here already verified (e.g. navigated back), skip ahead.
   useEffect(() => {
@@ -42,12 +44,13 @@ export default function EmailVerificationPage() {
   // something to connect with.
   useEffect(() => {
     if (sessionToken || !email) return;
+    console.log("REtrying")
     let cancelled = false;
     (async () => {
       try {
         const res = await sendVerificationMail(email);
         if (!cancelled && res.success) {
-          setSessionToken(res.data?.sessionToken ?? null);
+          setSessionToken(res.data?.token ?? null);
         }
       } catch {
         // Swallow here - the "Resend email" button gives them another shot,
@@ -65,7 +68,7 @@ export default function EmailVerificationPage() {
     try {
       const res = await sendVerificationMail(email);
       if (res.success) {
-        setSessionToken(res.data?.sessionToken ?? null);
+        setSessionToken(res.data?.token ?? null);
         setResent(true);
         setTimeout(() => setResent(false), 10000);
       }
@@ -78,7 +81,7 @@ export default function EmailVerificationPage() {
     if (!sessionToken) return;
 
     const es = new EventSource(
-      `${import.meta.env.VITE_API_URL}api/auth/verify-status?sessionToken=${sessionToken}`,
+      `${import.meta.env.VITE_API_URL}api/auth/verify-status?token=${sessionToken}`,
       { withCredentials: true },
     );
 

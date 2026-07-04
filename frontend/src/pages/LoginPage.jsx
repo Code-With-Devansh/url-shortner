@@ -7,16 +7,20 @@ import UserSchema from "../schema/auth.schema.js";
 import { setAccessToken } from "../utils/axiosInstance.js";
 import { ErrorCodes, parseApiError } from "../utils/errorCodes.js";
 import { setPendingAuth } from "../utils/pendingAuth.js";
+import { useFieldErrorFlash } from "../hooks/useFieldErrorFlash.js";
 const LoginPage = ({ setLogin }) => {
-  const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-  };
   const [form, setForm] = useState({ email: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const { isErrored, flash: flashFieldError, clear: clearFieldError } = useFieldErrorFlash();
+
+  const handleChange = (e) => {
+    setForm({ ...form, [e.target.name]: e.target.value });
+    clearFieldError();
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -27,7 +31,11 @@ const LoginPage = ({ setLogin }) => {
         password: true,
       }).safeParse(form);
       if (!validationResult.success) {
-        throw new Error(validationResult.error.issues[0].message);
+        const issue = validationResult.error.issues[0];
+        setError(issue.message);
+        flashFieldError(issue.path[0]);
+        setLoading(false);
+        return;
       }
       const data = await loginUser(form.email, form.password);
       dispatch(login({ user: data }));
@@ -40,12 +48,6 @@ const LoginPage = ({ setLogin }) => {
       setLoading(false);
     } catch (err) {
       setLoading(false);
-
-      // Local zod validation errors don't carry an apiCode — just show them.
-      if (!err.apiCode) {
-        setError(err.message || "Email or Password is incorrect");
-        return;
-      }
 
       const { code, message } = parseApiError(err);
 
@@ -71,6 +73,13 @@ const LoginPage = ({ setLogin }) => {
           setError(parseApiError(resendErr).message);
         }
         return;
+      }
+
+      // Wrong email or wrong password both come back as this one code (by
+      // design, so a login form can't be used to enumerate accounts) - so
+      // highlight both fields rather than guessing which one was at fault.
+      if (code === ErrorCodes.AUTH_INVALID_CREDENTIALS) {
+        flashFieldError(["email", "password"]);
       }
 
       setError(message);
@@ -116,7 +125,11 @@ const LoginPage = ({ setLogin }) => {
                   placeholder="you@example.com"
                   value={form.email}
                   onChange={handleChange}
-                  className="w-full bg-zinc-950 border border-zinc-800 rounded px-4 py-3.5 text-sm text-zinc-100 placeholder-zinc-600 outline-none focus:border-lime-400 focus:ring-2 focus:ring-lime-400/10 transition-all duration-200"
+                  className={`w-full bg-zinc-950 border rounded px-4 py-3.5 text-sm text-zinc-100 placeholder-zinc-600 outline-none focus:ring-2 transition-all duration-200 ${
+                    isErrored("email")
+                      ? "border-red-500 ring-2 ring-red-500/20 animate-pulse"
+                      : "border-zinc-800 focus:border-lime-400 focus:ring-lime-400/10"
+                  }`}
                 />
               </div>
 
@@ -140,7 +153,11 @@ const LoginPage = ({ setLogin }) => {
                     placeholder="••••••••"
                     value={form.password}
                     onChange={handleChange}
-                    className="w-full bg-zinc-950 border border-zinc-800 rounded px-4 py-3.5 pr-12 text-sm text-zinc-100 placeholder-zinc-600 outline-none focus:border-lime-400 focus:ring-2 focus:ring-lime-400/10 transition-all duration-200"
+                    className={`w-full bg-zinc-950 border rounded px-4 py-3.5 pr-12 text-sm text-zinc-100 placeholder-zinc-600 outline-none focus:ring-2 transition-all duration-200 ${
+                      isErrored("password")
+                        ? "border-red-500 ring-2 ring-red-500/20 animate-pulse"
+                        : "border-zinc-800 focus:border-lime-400 focus:ring-lime-400/10"
+                    }`}
                   />
                   <button
                     type="button"

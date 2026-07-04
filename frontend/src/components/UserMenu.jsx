@@ -1,14 +1,14 @@
 import React, { useRef, useState, useEffect } from 'react'
 import { logout } from '../store/slice/authSlice';
 import { useDispatch } from 'react-redux';
-import { Link } from '@tanstack/react-router';
+import { Link, useNavigate } from '@tanstack/react-router';
 import { logoutUser } from '../api/user.api';
 import { clearAccessToken } from '../utils/axiosInstance';
 const UserMenu = ({ user }) =>{
   const dispatch = useDispatch();
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
-
+  const navigate = useNavigate();
   useEffect(() => {
     const handler = (e) => {
       if (ref.current && !ref.current.contains(e.target)) {
@@ -24,9 +24,10 @@ const UserMenu = ({ user }) =>{
     await logoutUser()
     clearAccessToken()
     dispatch(logout());
+    navigate({to:'/'})
   };
 
-  return (
+  return (  
     <div ref={ref} className="relative">
       {/* Avatar button */}
       <button
