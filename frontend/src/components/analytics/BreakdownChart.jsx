@@ -65,15 +65,38 @@ const EmptyState = ({ by }) => (
     No {LABELS[by]?.toLowerCase() || "data"} recorded yet
   </p>
 );
+const toLocalHourRows = (data) => {
+  const offsetHours = Math.floor(-new Date().getTimezoneOffset() / 60);
 
+  const counts = new Array(24).fill(0);
+  (data || []).forEach(({ name, count }) => {
+    const utcHour = parseInt(name, 10);
+    if (Number.isNaN(utcHour)) return;
+    const localHour = (((utcHour + offsetHours) % 24) + 24) % 24;
+    counts[localHour] += count;
+  });
+
+  return counts.map((count, hour) => ({
+    name: hour.toString().padStart(2, "0"),
+    count,
+  }));
+};
 const BreakdownChart = ({ by, data = [], loading, height = 240 }) => {
-  const rows = useMemo(
-    () =>
-      (data || [])
-        .map((d) => ({ name: formatName(by, d.name), count: d.count }))
-        .sort((a, b) => b.count - a.count),
-    [data, by],
-  );
+  const rows = useMemo(() => {
+    if (by === "hours") {
+      // Chronological order, not ranked by count - it's a cycle, not a leaderboard.
+      return toLocalHourRows(data).map((d) => ({
+        name: formatName(by, d.name),
+        count: d.count,
+      }));
+    }
+    return (data || [])
+      .map((d) => ({ name: formatName(by, d.name), count: d.count }))
+      .sort((a, b) => b.count - a.count);
+  }, [data, by]);
+
+  const hasData =
+    by === "hours" ? rows.some((r) => r.count > 0) : rows.length > 0;
 
   if (loading) return <LoadingState />;
   if (!rows.length) return <EmptyState by={by} />;
@@ -83,8 +106,15 @@ const BreakdownChart = ({ by, data = [], loading, height = 240 }) => {
   if (by === "hours") {
     return (
       <ResponsiveContainer width="100%" height={height}>
-        <BarChart data={rows} margin={{ top: 8, right: 4, left: -20, bottom: 0 }}>
-          <CartesianGrid vertical={false} stroke="#27272a" strokeDasharray="3 3" />
+        <BarChart
+          data={rows}
+          margin={{ top: 8, right: 4, left: -20, bottom: 0 }}
+        >
+          <CartesianGrid
+            vertical={false}
+            stroke="#27272a"
+            strokeDasharray="3 3"
+          />
           <XAxis
             dataKey="name"
             tick={{ fill: "#a1a1aa", fontSize: 9, fontFamily: "monospace" }}
@@ -101,7 +131,12 @@ const BreakdownChart = ({ by, data = [], loading, height = 240 }) => {
             width={32}
           />
           <Tooltip cursor={{ fill: "#a3e63512" }} content={<CustomTooltip />} />
-          <Bar dataKey="count" fill="#a3e635" radius={[2, 2, 0, 0]} maxBarSize={20} />
+          <Bar
+            dataKey="count"
+            fill="#a3e635"
+            radius={[2, 2, 0, 0]}
+            maxBarSize={20}
+          />
         </BarChart>
       </ResponsiveContainer>
     );
@@ -112,7 +147,8 @@ const BreakdownChart = ({ by, data = [], loading, height = 240 }) => {
   const top = rows.slice(0, MAX_SLICES);
   const rest = rows.slice(MAX_SLICES);
   const restTotal = rest.reduce((sum, r) => sum + r.count, 0);
-  const sliceData = restTotal > 0 ? [...top, { name: "Other", count: restTotal }] : top;
+  const sliceData =
+    restTotal > 0 ? [...top, { name: "Other", count: restTotal }] : top;
 
   return (
     <div className="flex flex-col sm:flex-row items-center gap-4">
@@ -131,7 +167,9 @@ const BreakdownChart = ({ by, data = [], loading, height = 240 }) => {
             {sliceData.map((entry, i) => (
               <Cell
                 key={entry.name}
-                fill={entry.name === "Other" ? "#3f3f46" : COLORS[i % COLORS.length]}
+                fill={
+                  entry.name === "Other" ? "#3f3f46" : COLORS[i % COLORS.length]
+                }
               />
             ))}
           </Pie>
@@ -146,7 +184,10 @@ const BreakdownChart = ({ by, data = [], loading, height = 240 }) => {
             <span
               className="w-2.5 h-2.5 rounded-sm shrink-0"
               style={{
-                background: entry.name === "Other" ? "#3f3f46" : COLORS[i % COLORS.length],
+                background:
+                  entry.name === "Other"
+                    ? "#3f3f46"
+                    : COLORS[i % COLORS.length],
               }}
             />
             <span className="text-zinc-400 truncate flex-1">{entry.name}</span>
