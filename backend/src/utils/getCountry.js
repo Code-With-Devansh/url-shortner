@@ -11,8 +11,6 @@ const isPrivateOrLocal = (ip) => {
 
 export const getCountry = async (rawIp) => {
   try {
-    console.log(rawIp)
-    console.log("&&&&&&&&&&&&&&&&&&&&&")
     if (!rawIp || !isIP(rawIp)) return "XX";
     if (isPrivateOrLocal(rawIp)) return "XX"; // dev/local traffic
 
