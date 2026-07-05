@@ -87,7 +87,7 @@ export const saveClickToRedis = async (
 
   pipeline.hincrby(key, "total", 1);
   pipeline.hincrby(key, `country:${country}`, 1);
-  pipeline.hincrby(key, `device:${ua.device.type || "Unknown"}`, 1);
+  pipeline.hincrby(key, `device:${ua.device.type || "Desktop"}`, 1);
   pipeline.hincrby(key, `browser:${ua.browser.name || "Unknown"}`, 1);
   pipeline.hincrby(key, `os:${ua.os.name || "Unknown"}`, 1);
   pipeline.hincrby(key, `referer:${referer}`, 1);

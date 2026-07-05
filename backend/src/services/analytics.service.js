@@ -115,7 +115,7 @@ export async function recordClick(urlId, ttlDays, req) {
   await clickQueue.add("click", {
     urlId,
     ttlDays,
-    ip: req.headers["x-forwarded-for"]?.split(",")[0],
+    ip: safeIp(req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.ip),
     userAgent: req.headers["user-agent"],
     referer,
     timestamp: Date.now(),
@@ -124,6 +124,7 @@ export async function recordClick(urlId, ttlDays, req) {
 // reads bucket from redis for today only, returns null if no clicks yet today
 import redis from "../config/redis.config.js";
 import { ErrorCodes } from "../utils/errorCodes.js";
+import { safeIp } from "../utils/safeIp.js";
 
 async function aggregateBucketKeys(keys) {
   const countries = {};

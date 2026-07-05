@@ -114,7 +114,7 @@ export const redirectFromShortUrl = tryCatch(async (req, res, next) => {
   }
   try {
     await recordClick(shortUrlData.id, 3, req);
-  } catch {
+  } catch (err){
     logger.warn("Failed to record click for short URL: " + shortId);
   }
   return res.send(

@@ -1,6 +1,6 @@
 
 0.4 get country for analytics. device not setting up in analytics.
-
+0. need to get every click as soon as possible. also hour of day should be handled differently on frontend.
 
 15. visual issues with the font and font color
 
