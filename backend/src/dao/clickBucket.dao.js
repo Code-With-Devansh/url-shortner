@@ -95,3 +95,32 @@ export const getTopUrlsForUser = async (urlIds, since, limit) => {
     },
   ]);
 };
+
+// All URLs' totals for a user, unranked/untruncated - used as the ranking
+// baseline for the leaderboard, so live totals can be merged in before
+// truncating to the requested limit (truncating first would hide a URL
+// that's spiking live today but wasn't already near the top in Mongo).
+export const getAllUrlTotalsForUser = async (urlIds, since) => {
+  return ClickBucket.aggregate([
+    { $match: { url_id: { $in: urlIds }, date: { $gte: since } } },
+    { $group: { _id: "$url_id", clicks: { $sum: "$total" } } },
+    {
+      $lookup: {
+        from: "shorturls",
+        localField: "_id",
+        foreignField: "_id",
+        as: "url",
+      },
+    },
+    { $unwind: "$url" },
+    {
+      $project: {
+        _id: 0,
+        urlId: "$_id",
+        shortUrl: "$url.short_url",
+        fullUrl: "$url.full_url",
+        clicks: 1,
+      },
+    },
+  ]);
+};

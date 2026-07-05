@@ -53,3 +53,7 @@ export const findShortUrlByIdForUser = async (id, userId) => {
 
 export const searchShortUrls = (pipeline) =>
     ShortUrlSchema.aggregate(pipeline);
+
+export const getUserUrlsMeta = async (userId) => {
+  return ShortUrlSchema.find({ user: userId }, "_id short_url full_url").lean();
+};

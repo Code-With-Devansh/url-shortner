@@ -99,3 +99,24 @@ export const saveClickToRedis = async (
 
   await pipeline.exec();
 };
+
+
+export const getLiveTotalsByUrl = async (urlIds, date) => {
+  const keys = await getActiveBucketKeysForUrls(urlIds, date);
+  if (keys.length === 0) return {};
+
+  const pipeline = redis.pipeline();
+  keys.forEach((key) => pipeline.hget(key, "total"));
+  const results = await pipeline.exec();
+
+  const totals = {};
+  keys.forEach((key, i) => {
+    // key shape: analytics:<urlId>:<date>:<HH:MM>
+    const urlId = key.split(":")[1];
+    const [err, value] = results[i];
+    const count = err ? 0 : Number(value) || 0;
+    totals[urlId] = (totals[urlId] || 0) + count;
+  });
+
+  return totals;
+};

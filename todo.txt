@@ -1,17 +1,6 @@
+0. auto logout. needs to be fixed.
 
-0.4 get country for analytics. device not setting up in analytics.
-0. need to get every click as soon as possible. also hour of day should be handled differently on frontend.
-
-15. visual issues with the font and font color
-
-bugs:
 4. logging out during email verification raises a bug.
-5. dashboard if there is no link it is still clickable.  (top link, newest)
-
-
-features for testing:
-1. forgot password.
-1. search is now working but testing is required.(new not searching).
 
 arch Issues:
 4. CORS origin is a single string — no multi-origin or regex support

@@ -4,19 +4,17 @@ import {
   getBucketsByUrls,
   getUserUrlIds,
   getTopUrlsForUser,
+  getAllUrlTotalsForUser,
 } from "../dao/clickBucket.dao.js";
 
-import { findShortUrlByIdForUser } from "../dao/shortUrl.js";
+import { findShortUrlByIdForUser, getUserUrlsMeta } from "../dao/shortUrl.js";
 import { NotFoundError, ValidationError } from "../utils/appError.js";
 import { analyticsCacheKey } from "../utils/cacheKeys.js";
 import { withCache } from "../utils/withCache.js";
-import {getActiveBucketKeysForDate, getActiveBucketKeysForUrls, hllArchiveKey, hllKeyForBucket, mergeUniqueVisitors} from '../cache/clickBucket.redis.js'
+import {getActiveBucketKeysForDate, getActiveBucketKeysForUrls, getLiveTotalsByUrl, hllArchiveKey, hllKeyForBucket, mergeUniqueVisitors} from '../cache/clickBucket.redis.js'
 
-const TTL = {
-  summary: 30,
-  timeseries: 300,
-  breakdown: 300,
-  leaderboard: 300,
+const CACHE_TTL = {
+  historical: 60, // Mongo only changes once per flush cycle (every minute)
 };
 const ALLOWED_RANGES = { "7d": 7, "30d": 30, "90d": 90 };
 const ALLOWED_BREAKDOWNS = [
@@ -27,6 +25,20 @@ const ALLOWED_BREAKDOWNS = [
   "referers",
   "hours",
 ];
+const getCachedBucketsByUrl = (urlId, since, rangeKey) => {
+  const key = analyticsCacheKey("url", urlId, rangeKey, "mongo-buckets");
+  return withCache(key, CACHE_TTL.historical, () => getBucketsByUrl(urlId, since));
+};
+
+const getCachedBucketsByUrls = (urlIds, since, rangeKey) => {
+  const key = analyticsCacheKey("user", [...urlIds].sort().join(","), rangeKey, "mongo-buckets");
+  return withCache(key, CACHE_TTL.historical, () => getBucketsByUrls(urlIds, since));
+};
+
+const getCachedTopUrls = (urlIds, since, rangeKey, limit) => {
+  const key = analyticsCacheKey("user", urlIds.join(","), rangeKey, `top-urls:${limit}`);
+  return withCache(key, CACHE_TTL.historical, () => getTopUrlsForUser(urlIds, since, limit));
+};
 
 const toEntries = (mapOrObj) => {
   if (!mapOrObj) return [];
@@ -181,30 +193,27 @@ export const getUrlAnalyticsSummary = async (urlId, userId, range) => {
   if (!url) throw new NotFoundError("Short URL not found", ErrorCodes.URL_NOT_FOUND);
 
   const rangeKey = validateRange(range);
-  const key = analyticsCacheKey("url", urlId, rangeKey, "summary");
+  const since = sinceDate(rangeKey);
 
-  return withCache(key, TTL.summary, async () => {
-    const since = sinceDate(rangeKey);
-    const mongoBuckets = await getBucketsByUrl(urlId, since);
-    const todayBucket = await getLiveBucketForToday(urlId);
-    const allBuckets = todayBucket ? [...mongoBuckets, todayBucket] : mongoBuckets;
+  const [mongoBuckets, todayBucket] = await Promise.all([
+    getCachedBucketsByUrl(urlId, since, rangeKey),
+    getLiveBucketForToday(urlId), // always fresh, never cached
+  ]);
+  const allBuckets = todayBucket ? [...mongoBuckets, todayBucket] : mongoBuckets;
+  const { summary } = mergeBuckets(allBuckets);
 
-    const { summary } = mergeBuckets(allBuckets);
-    const hllKeys = mongoBuckets.map((b) => hllArchiveKey(urlId, b.date));
-    if (todayBucket) {
-      hllKeys.push(...todayBucket.hllKeys);
-    }
-    const uniqueVisitors = await mergeUniqueVisitors(hllKeys);
+  const hllKeys = mongoBuckets.map((b) => hllArchiveKey(urlId, b.date));
+  if (todayBucket) hllKeys.push(...todayBucket.hllKeys);
+  const uniqueVisitors = await mergeUniqueVisitors(hllKeys);
 
-    return {
-      urlId,
-      shortUrl: url.short_url,
-      fullUrl: url.full_url,
-      range: rangeKey,
-      total: summary.total,
-      uniqueVisitors,
-    };
-  });
+  return {
+    urlId,
+    shortUrl: url.short_url,
+    fullUrl: url.full_url,
+    range: rangeKey,
+    total: summary.total,
+    uniqueVisitors,
+  };
 };
 
 export const getUrlAnalyticsTimeseries = async (urlId, userId, range) => {
@@ -212,159 +221,172 @@ export const getUrlAnalyticsTimeseries = async (urlId, userId, range) => {
   if (!url) throw new NotFoundError("Short URL not found", ErrorCodes.URL_NOT_FOUND);
 
   const rangeKey = validateRange(range);
-  const key = analyticsCacheKey("url", urlId, rangeKey, "timeseries");
-  return withCache(key, TTL.timeseries, async () => {
-    const since = sinceDate(rangeKey);
-    const buckets = await getBucketsByUrl(urlId, since);
-    const { timeseries } = mergeBuckets(buckets);
+  const since = sinceDate(rangeKey);
 
-    return timeseries;
-  });
+  const [mongoBuckets, todayBucket] = await Promise.all([
+    getCachedBucketsByUrl(urlId, since, rangeKey),
+    getLiveBucketForToday(urlId),
+  ]);
+  const allBuckets = todayBucket ? [...mongoBuckets, todayBucket] : mongoBuckets;
+  const { timeseries } = mergeBuckets(allBuckets);
+
+  if (todayBucket) {
+    const todayEntry = timeseries.find((t) => t.date === todayBucket.date);
+    if (todayEntry) {
+      todayEntry.uniqueVisitors = await mergeUniqueVisitors(todayBucket.hllKeys);
+    }
+  }
+
+  return timeseries;
 };
 
 export const getUrlAnalyticsBreakdown = async (urlId, userId, range, by) => {
   const url = await findShortUrlByIdForUser(urlId, userId);
-  if (!url) throw new  NotFoundError("Short URL not found", ErrorCodes.URL_NOT_FOUND);
+  if (!url) throw new NotFoundError("Short URL not found", ErrorCodes.URL_NOT_FOUND);
 
   const rangeKey = validateRange(range);
   const dimension = validateBreakdown(by);
-  const key = analyticsCacheKey(
-    "url",
-    urlId,
-    rangeKey,
-    `breakdown:${dimension}`,
-  );
-  return withCache(key, TTL.breakdown, async () => {
-    const since = sinceDate(rangeKey);
-    const buckets = await getBucketsByUrl(urlId, since);
-    const { summary } = mergeBuckets(buckets);
+  const since = sinceDate(rangeKey);
 
-    return topN(summary[dimension]);
-  });
+  const [mongoBuckets, todayBucket] = await Promise.all([
+    getCachedBucketsByUrl(urlId, since, rangeKey),
+    getLiveBucketForToday(urlId),
+  ]);
+  const allBuckets = todayBucket ? [...mongoBuckets, todayBucket] : mongoBuckets;
+  const { summary } = mergeBuckets(allBuckets);
+
+  return topN(summary[dimension]);
 };
 
 // overall
-
 export const getOverallAnalyticsSummary = async (userId, range) => {
   const rangeKey = validateRange(range);
-  const key = analyticsCacheKey("user", userId, rangeKey, "summary");
-  return withCache(key, TTL.summary, async () => {
-    const urlIds = await getUserUrlIds(userId);
-    if (urlIds.length === 0) {
-      return { total: 0, uniqueVisitors: 0, range: rangeKey, topUrl: null };
-    }
+  const urlIds = await getUserUrlIds(userId);
+  if (urlIds.length === 0) {
+    return { total: 0, uniqueVisitors: 0, range: rangeKey, topUrl: null };
+  }
 
-    const since = sinceDate(rangeKey);
-    const [buckets, topUrls, liveToday] = await Promise.all([
-      getBucketsByUrls(urlIds, since),
-      getTopUrlsForUser(urlIds, since, 1),
-      getLiveBucketForUrlsToday(urlIds),
-    ]);
-    const { summary } = mergeBuckets(buckets);
+  const since = sinceDate(rangeKey);
+  const [mongoBuckets, topUrls, liveToday] = await Promise.all([
+    getCachedBucketsByUrls(urlIds, since, rangeKey),
+    getCachedTopUrls(urlIds, since, rangeKey, 1),
+    getLiveBucketForUrlsToday(urlIds),
+  ]);
+  const { summary } = mergeBuckets(mongoBuckets);
 
-    const hllKeys = buckets
-      .map((b) => hllArchiveKey(b.url_id, b.date))
-      .concat(liveToday.hllKeys);
-    const uniqueVisitors = await mergeUniqueVisitors(hllKeys);
+  const hllKeys = mongoBuckets
+    .map((b) => hllArchiveKey(b.url_id, b.date))
+    .concat(liveToday.hllKeys);
+  const uniqueVisitors = await mergeUniqueVisitors(hllKeys);
 
-    return {
-      total: summary.total + liveToday.total,
-      uniqueVisitors,
-      range: rangeKey,
-      topUrl: topUrls[0] || null,
-    };
-  });
+  return {
+    total: summary.total + liveToday.total,
+    uniqueVisitors,
+    range: rangeKey,
+    topUrl: topUrls[0] || null,
+  };
 };
 
 
 export const getOverallAnalyticsTimeseries = async (userId, range) => {
   const rangeKey = validateRange(range);
-  const key = analyticsCacheKey("user", userId, rangeKey, "timeseries");
-  return withCache(key, TTL.timeseries, async () => {
-    const urlIds = await getUserUrlIds(userId);
-    if (urlIds.length === 0) return [];
+  const urlIds = await getUserUrlIds(userId);
+  if (urlIds.length === 0) return [];
 
-    const since = sinceDate(rangeKey);
-    const [buckets, liveToday] = await Promise.all([
-      getBucketsByUrls(urlIds, since),
-      getLiveBucketForUrlsToday(urlIds),
-    ]);
+  const since = sinceDate(rangeKey);
+  const [mongoBuckets, liveToday] = await Promise.all([
+    getCachedBucketsByUrls(urlIds, since, rangeKey),
+    getLiveBucketForUrlsToday(urlIds),
+  ]);
 
-    const byDate = new Map();
-    for (const bucket of buckets) {
-      const entry = byDate.get(bucket.date) || {
-        date: bucket.date,
-        total: 0,
-        hllKeys: [],
-      };
-      entry.total += bucket.total || 0;
-      entry.hllKeys.push(hllArchiveKey(bucket.url_id, bucket.date));
-      byDate.set(bucket.date, entry);
-    }
-    if (liveToday.total > 0 || liveToday.hllKeys.length > 0) {
-      const todayEntry = byDate.get(liveToday.date) || {
-        date: liveToday.date,
-        total: 0,
-        hllKeys: [],
-      };
-      todayEntry.total += liveToday.total;
-      todayEntry.hllKeys.push(...liveToday.hllKeys);
-      byDate.set(liveToday.date, todayEntry);
-    }
+  const byDate = new Map();
+  for (const bucket of mongoBuckets) {
+    const entry = byDate.get(bucket.date) || { date: bucket.date, total: 0, hllKeys: [] };
+    entry.total += bucket.total || 0;
+    entry.hllKeys.push(hllArchiveKey(bucket.url_id, bucket.date));
+    byDate.set(bucket.date, entry);
+  }
+  if (liveToday.total > 0 || liveToday.hllKeys.length > 0) {
+    const todayEntry = byDate.get(liveToday.date) || {
+      date: liveToday.date,
+      total: 0,
+      hllKeys: [],
+    };
+    todayEntry.total += liveToday.total;
+    todayEntry.hllKeys.push(...liveToday.hllKeys);
+    byDate.set(liveToday.date, todayEntry);
+  }
 
-    const days = [...byDate.values()].sort((a, b) =>
-      a.date.localeCompare(b.date),
-    );
+  const days = [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
 
-    return Promise.all(
-      days.map(async ({ date, total, hllKeys }) => ({
-        date,
-        total,
-        uniqueVisitors: await mergeUniqueVisitors(hllKeys),
-      })),
-    );
-  });
+  return Promise.all(
+    days.map(async ({ date, total, hllKeys }) => ({
+      date,
+      total,
+      uniqueVisitors: await mergeUniqueVisitors(hllKeys),
+    })),
+  );
 };
+
 
 export const getOverallAnalyticsBreakdown = async (userId, range, by) => {
   const rangeKey = validateRange(range);
   const dimension = validateBreakdown(by);
-  const key = analyticsCacheKey(
-    "user",
-    userId,
-    rangeKey,
-    `breakdown:${dimension}`,
-  );
-  return withCache(key, TTL.breakdown, async () => {
-    const urlIds = await getUserUrlIds(userId);
-    if (urlIds.length === 0) return [];
+  const urlIds = await getUserUrlIds(userId);
+  if (urlIds.length === 0) return [];
 
-    const since = sinceDate(rangeKey);
-    const buckets = await getBucketsByUrls(urlIds, since);
-    const { summary } = mergeBuckets(buckets);
+  const since = sinceDate(rangeKey);
+  const [mongoBuckets, liveToday] = await Promise.all([
+    getCachedBucketsByUrls(urlIds, since, rangeKey),
+    getLiveBucketForUrlsToday(urlIds),
+  ]);
+  const allBuckets =
+    liveToday.total > 0 || liveToday.hllKeys.length > 0
+      ? [...mongoBuckets, liveToday]
+      : mongoBuckets;
+  const { summary } = mergeBuckets(allBuckets);
 
-    return topN(summary[dimension]);
-  });
+  return topN(summary[dimension]);
 };
-
-export const getOverallAnalyticsLeaderboard = async (
-  userId,
-  range,
-  limit = 10,
-) => {
+export const getOverallAnalyticsLeaderboard = async (userId, range, limit = 10) => {
   const rangeKey = validateRange(range);
   const cappedLimit = Math.min(limit, 50);
-  const key = analyticsCacheKey(
-    "user",
-    userId,
-    rangeKey,
-    `leaderboard:${cappedLimit}`,
-  );
-  return withCache(key, TTL.leaderboard, async () => {
-    const urlIds = await getUserUrlIds(userId);
-    if (urlIds.length === 0) return [];
+  const urlIds = await getUserUrlIds(userId);
+  if (urlIds.length === 0) return [];
 
-    const since = sinceDate(rangeKey);
-    return getTopUrlsForUser(urlIds, since, cappedLimit);
-  });
-};
+  const since = sinceDate(rangeKey);
+  const today = new Date().toISOString().split("T")[0];
+  const key = analyticsCacheKey("user", userId, rangeKey, "leaderboard-base");
+
+  const [mongoTotals, urlsMeta, liveTotals] = await Promise.all([
+    withCache(key, CACHE_TTL.historical, () => getAllUrlTotalsForUser(urlIds, since)),
+    withCache(
+      analyticsCacheKey("user", userId, "meta"),
+      CACHE_TTL.historical,
+      () => getUserUrlsMeta(userId),
+    ),
+    getLiveTotalsByUrl(urlIds, today), // uncached, always fresh
+  ]);
+
+  const byUrlId = new Map(
+    urlsMeta.map((u) => [
+      String(u._id),
+      { urlId: u._id, shortUrl: u.short_url, fullUrl: u.full_url, clicks: 0 },
+    ]),
+  );
+
+  for (const row of mongoTotals) {
+    const entry = byUrlId.get(String(row.urlId));
+    if (entry) entry.clicks += row.clicks;
+  }
+
+  for (const [urlId, liveClicks] of Object.entries(liveTotals)) {
+    const entry = byUrlId.get(urlId);
+    if (entry) entry.clicks += liveClicks;
+  }
+
+  return [...byUrlId.values()]
+    .filter((u) => u.clicks > 0)
+    .sort((a, b) => b.clicks - a.clicks)
+    .slice(0, cappedLimit);
+};  
