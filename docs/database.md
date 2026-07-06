@@ -227,7 +227,7 @@ Two search paths exist, selected via `USE_ATLAS_SEARCH`:
 - **Legacy MongoDB `$text` search** (`{ originalUrl: "text", shortCode: "text" }` index) — kept for local/non-Atlas environments, but has a known limitation: MongoDB's `$text` operator matches whole tokens, not substrings, so a search for `"git"` will not match a stored URL containing `"github.com"`. It's functional for exact-word searches only.
 - **Atlas Search** (`$search` aggregation stage, `search_index`, `autocomplete` with `nGram` tokenization on `full_url` and `short_url`) — the production path, and the one that actually supports substring/fuzzy matching the way users expect from a search box. `short_url` matches are boosted (`score: { boost: { value: 2 } }`) since an exact or near-exact slug match is a stronger signal of intent than a substring hit inside a long destination URL.
 
-`prepareSearchQuery` strips the app's own domain (`BASE_URL`) from the front of a pasted query before searching — so pasting the full short link back into the search box (`https://snp.2bd.net/abc123`) searches for `abc123`, not the whole URL including a domain that would never match anything in `full_url`.
+`prepareSearchQuery` strips the app's own domain (`BASE_URL`) from the front of a pasted query before searching — so pasting the full short link back into the search box (`https://pixel-mart.in/abc123`) searches for `abc123`, not the whole URL including a domain that would never match anything in `full_url`.
 
 ## Known Gaps / Accepted Risk
 

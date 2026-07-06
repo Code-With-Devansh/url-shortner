@@ -1,6 +1,6 @@
 # Snip API Documentation
 
-Base URL (production): `https://snp.2bd.net`
+Base URL (production): `https://pixel-mart.in`
 
 All request/response bodies are JSON unless noted otherwise. All endpoints are prefixed with `/api` except the redirect route itself, which lives at the root (`/:shortId`) since it has to work as a bare short link.
 
@@ -32,7 +32,7 @@ Snip uses a dual-token scheme:
 | **Refresh token** | `httpOnly` cookie (`refreshToken`)                                                                | 20 days    | Used to mint a new access token via `/api/auth/refresh`                                                                  |
 | **Device ID**     | `httpOnly` cookie (`deviceId`)                                                                    | 1 year     | Identifies a browser/device so refresh tokens can be tracked and revoked per-device, independent of `User-Agent` strings |
 
-Cookies are set with `sameSite: "none"` and `secure: true` (in production), since the frontend (`snpi.vercel.app`) and backend (`snp.2bd.net`) are on different origins. Requests that rely on cookies (`refresh`, `logout`) must be made with `credentials: "include"` (fetch) or `withCredentials: true` (Axios).
+Cookies are set with `sameSite: "none"` and `secure: true` (in production), since the frontend (`snpi.vercel.app`) and backend (`pixel-mart.in`) are on different origins. Requests that rely on cookies (`refresh`, `logout`) must be made with `credentials: "include"` (fetch) or `withCredentials: true` (Axios).
 
 **Typical flow:**
 
@@ -419,7 +419,7 @@ Create a short URL. Works both **anonymously** and **authenticated** — behavio
   "success": true,
   "data":{
     "short_id": "aB3xK9z",
-    "short_url": "https://snp.2bd.net/aB3xK9z",
+    "short_url": "https://pixel-mart.in/aB3xK9z",
     "full_url":"https://example.com"
   }
 }
@@ -478,7 +478,7 @@ List the authenticated user's short URLs. Cursor-paginated.
       "id": "665f1b...",
       "full_url": "https://example.com/...",
       "shortCode": "aB3xK9z",
-      "short_url": "https://snp.2bd.net/aB3xK9z",
+      "short_url": "https://pixel-mart.in/aB3xK9z",
       "clicks": 42,
       "isActive": true,
       "createdAt": "2026-06-20T10:00:00.000Z"
@@ -579,7 +579,7 @@ All routes below are prefixed with `/api/analytics` and require authentication. 
 
 #### `GET /:shortId`
 
-The actual short link redirect. This is what `https://snp.2bd.net/aB3xK9z` resolves to — not typically called by API consumers directly.
+The actual short link redirect. This is what `https://pixel-mart.in/aB3xK9z` resolves to — not typically called by API consumers directly.
 
 **Auth required:** No
 
