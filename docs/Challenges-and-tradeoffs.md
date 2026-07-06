@@ -26,11 +26,6 @@ A running log of specific problems this codebase actually ran into, how they wer
 
 **What's still not covered:** the recovery mechanism protects the window *between claim and commit*. It does not protect a bucket that hasn't been claimed yet — if Redis itself loses data (misconfigured persistence, an unclean restart with AOF disabled) before a bucket becomes due, that data is still gone with no replay path. This is a genuine remaining gap, not a solved problem, and depends on Redis persistence actually being configured as intended in production — something this codebase's docs flag as worth confirming rather than assuming.
 
-## A second, compounding bug that nearly defeated the durability fix
-
-**Problem:** even after building the claim/recovery mechanism correctly in application code, `docker/crontab` had `analyticsRecoveryWorker.js` scheduled with `cd /path/to/app` — a literal placeholder path never replaced with the real container working directory (`/usr/src/app`) — plus a wrong script path and a log redirect (`/var/log/analytics-recovery.log`) that doesn't flow into the rest of the logging pipeline. The recovery job was scheduled, would fail silently on every run, and nothing about that failure would surface anywhere visible.
-
-**The broader lesson this exposes:** a correctness fix implemented entirely in application code can still be silently defeated by a deployment/infra detail that's easy to miss in review, because the two live in different files, different mental models ("is my flush logic correct" vs. "does cron actually invoke it"), and — critically — the failure mode (a cron job silently no-op'ing on every tick) produces no error visible from the application side at all. This is part of why the corrected crontab now routes recovery-worker output through the same `/proc/1/fd/1`/`/proc/1/fd/2` pattern as everything else: a job that fails silently into a log file nobody reads is barely better than a job that was never scheduled.
 
 ## Cross-replica SSE: correctness vs. simplicity
 
@@ -42,16 +37,6 @@ A running log of specific problems this codebase actually ran into, how they wer
 
 **Problem/tension:** a Bloom filter can false-positive (say "might exist" for a slug that doesn't) but never false-negative (never say "doesn't exist" for one that does) — which is exactly the asymmetry needed to safely short-circuit only the negative case. The trade-off accepted here is that the filter can drift out of sync with reality if Redis loses data independently of Mongo, at which point every redirect briefly costs an extra (harmless but unnecessary) Mongo round-trip until the filter is rebuilt — never a correctness problem, only a performance one, which is why a manual rebuild script rather than automatic reconciliation was judged sufficient.
 
-## Geolocation: shipped as an explicit stub, not silently disabled
-
-**Problem/observation:** `processClick` hardcodes `country = "IN"` for every click, with the real call (`getCountry(ip)`) commented out directly above it. The `@maxmind/geoip2-node` dependency is already in `package.json`, and the `countries` breakdown dimension is fully wired end-to-end on both write and read sides. This isn't a half-built feature so much as a feature built end-to-end and then deliberately gated off at one specific line — likely due to a missing MaxMind license/database file in some environment, or a deliberate decision to ship without real geolocation for a first pass. Worth noting as a trade-off in progress rather than a bug: someone made a call to ship the pipeline before the data source was ready, rather than blocking the whole analytics feature on it.
-
 ## Cache invalidation granularity vs. cost
 
 **Problem/tension:** `invalidateAnalyticsCache` runs a `SCAN` + delete over every `cache:analytics:url:{urlId}:*` key (and the owner's `overall:*` keys) once per flushed bucket, rather than something more surgical. It short-circuits entirely if there's no existing 30-day summary cache entry for that URL — a cheap way to skip invalidation work for URLs nobody's actively viewing. The trade-off: this is coarser than invalidating exactly the cache entries that changed, but building that precision would mean tracking which specific query shapes are cached for which URL, for a marginal win given TTLs are already short (30s–300s) and today's numbers are read live from Redis regardless.
-
-## Filename casing inconsistency across docs
-
-**Problem:** cross-doc links throughout this project reference lowercase filenames (`analytics.md`, `api.md`, `deployment.md`, `security.md`), but the actual files are `ANALYTICS.md`, `API.md`, `DEPLOYMENT.md` — and `security.md` doesn't exist as an uploaded/tracked file at all despite being referenced from multiple docs as the canonical source for CORS/CSRF/rate-limit rationale.
-
-**Why this matters more than it looks like:** on a case-sensitive filesystem (which is what GitHub, GitLab, and most Linux-based CI/deploy pipelines use), every one of those links 404s. This is invisible on a case-insensitive local filesystem (macOS default, Windows), which is presumably why it went unnoticed — a genuine "works on my machine" class of issue, just applied to documentation instead of code. Documented as a known gap; see [`known-limitations.md`](./known-limitations.md).

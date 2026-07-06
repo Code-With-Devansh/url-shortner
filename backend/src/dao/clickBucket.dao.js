@@ -110,6 +110,13 @@ export const getTopUrlsForUser = async (userId, since, limit) => {
   ]);
 };
 
+// export const getBucketsByUrls = async (urlId, since) => {
+//   const today = new Date().toISOString().split("T")[0];
+//   return ClickBucket.find(
+//     { url_id: urlId, date: { $gte: since } }, 
+//     "-_id -__v",
+//   ).sort({ date: 1 }).lean();
+// };
 // All of a user's URL totals for a date range, ranked but NOT limited by
 // URL count anymore — this aggregates over the user's click *data*, which
 // is bounded by activity, not by how many links they've ever created.

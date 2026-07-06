@@ -1,7 +1,7 @@
 import { clickQueue } from "../queues/queues.js";
 import {
   getBucketsByUrl,
-  getBucketsByUrls,
+  getBucketsByUser,
   getUserUrlIds,
   getTopUrlsForUser,
   getAllUrlTotalsForUser,
@@ -11,7 +11,7 @@ import redis from "../config/redis.config.js";
 import { ErrorCodes } from "../utils/errorCodes.js";
 import { safeIp } from "../utils/safeIp.js";
 
-import { findShortUrlByIdForUser, getUserUrlsMeta } from "../dao/shortUrl.js";
+import { findShortUrlByIdForUser, getShortUrlsMetaByIds } from "../dao/shortUrl.js";
 import { NotFoundError, ValidationError } from "../utils/appError.js";
 import { analyticsCacheKey } from "../utils/cacheKeys.js";
 import { withCache } from "../utils/withCache.js";
@@ -34,14 +34,18 @@ const getCachedBucketsByUrl = (urlId, since, rangeKey) => {
   return withCache(key, CACHE_TTL.historical, () => getBucketsByUrl(urlId, since));
 };
 
-const getCachedBucketsByUrls = (urlIds, since, rangeKey) => {
-  const key = analyticsCacheKey("user", [...urlIds].sort().join(","), rangeKey, "mongo-buckets");
-  return withCache(key, CACHE_TTL.historical, () => getBucketsByUrls(urlIds, since));
+// Keyed by userId directly now (not a joined list of url_ids) — the query
+// itself filters on the denormalized `user` field on ClickBucket, so there's
+// no need to resolve/serialize the user's url_id list just to build a cache
+// key or scope the query.
+const getCachedBucketsByUser = (userId, since, rangeKey) => {
+  const key = analyticsCacheKey("user", userId, rangeKey, "mongo-buckets");
+  return withCache(key, CACHE_TTL.historical, () => getBucketsByUser(userId, since));
 };
 
-const getCachedTopUrls = (urlIds, since, rangeKey, limit) => {
-  const key = analyticsCacheKey("user", urlIds.join(","), rangeKey, `top-urls:${limit}`);
-  return withCache(key, CACHE_TTL.historical, () => getTopUrlsForUser(urlIds, since, limit));
+const getCachedTopUrls = (userId, since, rangeKey, limit) => {
+  const key = analyticsCacheKey("user", userId, rangeKey, `top-urls:${limit}`);
+  return withCache(key, CACHE_TTL.historical, () => getTopUrlsForUser(userId, since, limit));
 };
 
 const toEntries = (mapOrObj) => {
@@ -275,6 +279,9 @@ export const getUrlAnalyticsBreakdown = async (urlId, userId, range, by) => {
 // overall
 export const getOverallAnalyticsSummary = async (userId, range) => {
   const rangeKey = validateRange(range);
+  // Still needed for the Redis-side "live today" lookup below — those
+  // buckets are keyed by url_id, not by user. NOT used to scope the Mongo
+  // queries anymore (those filter on `user` directly).
   const urlIds = await getUserUrlIds(userId);
   if (urlIds.length === 0) {
     return { total: 0, uniqueVisitors: 0, range: rangeKey, topUrl: null };
@@ -282,8 +289,8 @@ export const getOverallAnalyticsSummary = async (userId, range) => {
 
   const since = sinceDate(rangeKey);
   const [mongoBuckets, topUrls, liveToday] = await Promise.all([
-    getCachedBucketsByUrls(urlIds, since, rangeKey),
-    getCachedTopUrls(urlIds, since, rangeKey, 1),
+    getCachedBucketsByUser(userId, since, rangeKey),
+    getCachedTopUrls(userId, since, rangeKey, 1),
     getLiveBucketForUrlsToday(urlIds),
   ]);
   const { summary } = mergeBuckets(mongoBuckets);
@@ -304,12 +311,12 @@ export const getOverallAnalyticsSummary = async (userId, range) => {
 
 export const getOverallAnalyticsTimeseries = async (userId, range) => {
   const rangeKey = validateRange(range);
-  const urlIds = await getUserUrlIds(userId);
+  const urlIds = await getUserUrlIds(userId); // Redis live-lookup only, see above
   if (urlIds.length === 0) return [];
 
   const since = sinceDate(rangeKey);
   const [mongoBuckets, liveToday] = await Promise.all([
-    getCachedBucketsByUrls(urlIds, since, rangeKey),
+    getCachedBucketsByUser(userId, since, rangeKey),
     getLiveBucketForUrlsToday(urlIds),
   ]);
 
@@ -346,12 +353,12 @@ export const getOverallAnalyticsTimeseries = async (userId, range) => {
 export const getOverallAnalyticsBreakdown = async (userId, range, by) => {
   const rangeKey = validateRange(range);
   const dimension = validateBreakdown(by);
-  const urlIds = await getUserUrlIds(userId);
+  const urlIds = await getUserUrlIds(userId); // Redis live-lookup only, see above
   if (urlIds.length === 0) return [];
 
   const since = sinceDate(rangeKey);
   const [mongoBuckets, liveToday] = await Promise.all([
-    getCachedBucketsByUrls(urlIds, since, rangeKey),
+    getCachedBucketsByUser(userId, since, rangeKey),
     getLiveBucketForUrlsToday(urlIds),
   ]);
   const allBuckets =
@@ -365,33 +372,46 @@ export const getOverallAnalyticsBreakdown = async (userId, range, by) => {
 export const getOverallAnalyticsLeaderboard = async (userId, range, limit = 10) => {
   const rangeKey = validateRange(range);
   const cappedLimit = Math.min(limit, 50);
+  // Still needed for the Redis-side "live today" lookup — those buckets are
+  // keyed by url_id, not by user. This set is naturally small in practice
+  // (only URLs with clicks *today*), unlike the old getUserUrlsMeta(userId)
+  // call this replaces below, which pulled the user's ENTIRE url list.
   const urlIds = await getUserUrlIds(userId);
   if (urlIds.length === 0) return [];
 
   const since = sinceDate(rangeKey);
   const today = new Date().toISOString().split("T")[0];
-  const key = analyticsCacheKey("user", userId, rangeKey, "leaderboard-base");
+  const key = analyticsCacheKey("user", userId, rangeKey, `leaderboard-base:${cappedLimit}`);
 
-  const [mongoTotals, urlsMeta, liveTotals] = await Promise.all([
-    withCache(key, CACHE_TTL.historical, () => getAllUrlTotalsForUser(urlIds, since)),
-    withCache(
-      analyticsCacheKey("user", userId, "meta"),
-      CACHE_TTL.historical,
-      () => getUserUrlsMeta(userId),
-    ),
+  // getAllUrlTotalsForUser is kept around (unbounded, ranked-but-untruncated)
+  // for callers that genuinely need every URL's historical total. For the
+  // leaderboard specifically, getTopUrlsForUser already ranks AND truncates
+  // to cappedLimit inside Mongo (before the $lookup), so we never join
+  // against more than `cappedLimit` documents no matter how many short URLs
+  // this user has ever created.
+  const [mongoTop, liveTotals] = await Promise.all([
+    withCache(key, CACHE_TTL.historical, () => getTopUrlsForUser(userId, since, cappedLimit)),
     getLiveTotalsByUrl(urlIds, today), // uncached, always fresh
   ]);
 
   const byUrlId = new Map(
-    urlsMeta.map((u) => [
-      String(u._id),
-      { urlId: u._id, shortUrl: u.short_url, fullUrl: u.full_url, clicks: 0 },
-    ]),
+    mongoTop.map((u) => [String(u.urlId), { ...u, clicks: u.clicks }]),
   );
 
-  for (const row of mongoTotals) {
-    const entry = byUrlId.get(String(row.urlId));
-    if (entry) entry.clicks += row.clicks;
+  // A URL that's spiking live today but wasn't already in the top
+  // `cappedLimit` historically won't have metadata yet — fetch it only for
+  // that (small, "active today") set, instead of the user's whole url list.
+  const missingIds = Object.keys(liveTotals).filter((id) => !byUrlId.has(id));
+  if (missingIds.length > 0) {
+    const meta = await getShortUrlsMetaByIds(missingIds);
+    for (const u of meta) {
+      byUrlId.set(String(u._id), {
+        urlId: u._id,
+        shortUrl: u.short_url,
+        fullUrl: u.full_url,
+        clicks: 0,
+      });
+    }
   }
 
   for (const [urlId, liveClicks] of Object.entries(liveTotals)) {
@@ -399,8 +419,12 @@ export const getOverallAnalyticsLeaderboard = async (userId, range, limit = 10) 
     if (entry) entry.clicks += liveClicks;
   }
 
+  // Re-sort after merging live totals in: a URL just outside the Mongo-side
+  // top `cappedLimit` could still be pushed up by today's live clicks, and
+  // one already in mongoTop could (rarely) be overtaken. Truncate again to
+  // cappedLimit for the final response.
   return [...byUrlId.values()]
     .filter((u) => u.clicks > 0)
     .sort((a, b) => b.clicks - a.clicks)
     .slice(0, cappedLimit);
-};  
+};
