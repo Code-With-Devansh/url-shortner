@@ -28,5 +28,5 @@ export default {
   },
   passwordPepper:process.env.PASSWORD_PEPPER,
   useAtlasSearch:process.env.USE_ATLAS_SEARCH,
-  rangeSize: process.env.RANGE_SIZE,
+  rangeSize: Number.parseInt(process.env.RANGE_SIZE),
 };

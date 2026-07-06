@@ -10,5 +10,5 @@
 2-59/5 * * * * cd /usr/src/app && node src/cron/analyticsRecoveryWorker.js >> /proc/1/fd/1 2>> /proc/1/fd/2
 
 # GeoIP database update — weekly, Sunday 3am
-0 3 * * 0 cd /usr/src/app && node src/cron/updateGeoipDb.js >> /proc/1/fd/1 2>> /proc/1/fd/2
+0 3 * * 0 cd /usr/src/app && node src/cron/updateGeoIpDb.js >> /proc/1/fd/1 2>> /proc/1/fd/2
 # trailing newline required by cron

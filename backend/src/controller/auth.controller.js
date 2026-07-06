@@ -4,13 +4,11 @@ import {
 } from "../config/cookieConfig.js";
 import {
   findUserByEmail,
-  findUserById,
   removePasswordResetToken,
   setEmailVerified,
   updatePassword,
 } from "../dao/user.dao.js";
 import {
-  delAllRefreshTokens,
   delRefreshToken,
   saveRefreshToken,
 } from "../dao/refreshToken.dao.js";
@@ -21,33 +19,19 @@ import {
   delSessionTokenFromRedis,
 } from "../cache/user.redis.js";
 import {
-  checkIfRefreshTokenExists,
-  generateAndStorePasswordResetToken,
-  generateAndStoreVerificationToken,
   loginUser,
   logoutUser,
-  queueEmailVerification,
   queuePasswordReset,
   refreshAccessTokenService,
   registerUser,
   sendVerificationLinkService,
-  storeSessionToken,
   verifyEmailService,
   verifySessionToken,
 } from "../services/auth.service.js";
 import {
-  sendEmailVerificationMail,
-  sendpasswordResetMail,
-} from "../services/resend.service.js";
-import {
-  generateAccessToken,
   generateRandomToken,
-  generateRefreshToken,
   generateValidationErrors,
-  verifyEmailVerificationToken,
   verifyPasswordResetToken,
-  verifyRefreshToken,
-  verifyToken,
 } from "../utils/helper.js";
 import tryCatch from "../utils/tryCatch.js";
 import { ErrorCodes } from "../utils/errorCodes.js";
@@ -59,6 +43,7 @@ import {
 import UserSchema from "../schema/auth.schema.js";
 import { addClient, notifyClient, removeClient } from "../utils/sseClient.js";
 import logger from "../logger/index.js";
+import crypto from 'crypto'
 import {
   toUserDTO,
   toLoginResponseDTO,

@@ -20,9 +20,9 @@ shortUrlSchema.index({ user: 1, clicks: -1 });
 // Full-text search across originalUrl, shortCode, title
 // Allows: db.urls.find({ $text: { $search: "github" } })
 shortUrlSchema.index(
-  { originalUrl: "text", shortCode: "text" },
+  { full_url : "text", short_url: "text" },
   {
-    weights: { shortCode: 10, title: 5, originalUrl: 1 }, // shortCode matches rank highest
+    weights: { short_url: 10, full_url: 1 }, // short_url matches rank highest
     name: "url_text_search",
   }
 );

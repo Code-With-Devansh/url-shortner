@@ -3,6 +3,7 @@ import ClickBucket from '../models/clickBucket.model.js';
 
 export const saveClickBucket = async (
   urlId,
+  userId,
   date,
   totalClicks,
   uniqueVisitors,
@@ -13,6 +14,7 @@ export const saveClickBucket = async (
   referers,
   hours,
   expireAt,
+  options = {},
 ) => {
   const inc = { total: totalClicks };
   const addDimension = (name, counts) => {
@@ -31,9 +33,12 @@ export const saveClickBucket = async (
     { url_id: urlId, date },
     {
       $inc: inc,
-      $set: { uniqueVisitors, expires_at: expireAt },
+      // `user` is set (not incremented) on every upsert — harmless to repeat,
+      // and lets an already-existing bucket pick up `user` retroactively if
+      // it was created before this field existed.
+      $set: { uniqueVisitors, expires_at: expireAt, user: userId },
     },
-    { upsert: true },
+    { upsert: true, session: options.session },
   );
 };
 
@@ -47,26 +52,35 @@ export const getBucketsByUrl = async (urlId, since) => {
   ).sort({ date: 1 }).lean();
 };
 
-// All buckets for many URLs (used for the "overall" views) within a date range
-export const getBucketsByUrls = async (urlIds, since) => {
+// All buckets belonging to a user (used for the "overall" views) within a
+// date range. Filters on the denormalized `user` field via the
+// { user: 1, date: -1 } index — no url_id list needed, so this no longer
+// scales with how many short URLs the user has created.
+export const getBucketsByUser = async (userId, since) => {
   return ClickBucket.find(
-    { url_id: { $in: urlIds }, date: { $gte: since } },
+    { user: userId, date: { $gte: since } },
     "-_id -__v",
   )
     .sort({ date: 1 })
     .lean();
 };
 
-// Just the ids — used to scope overall queries to "this user's URLs"
+// Just the ids — still needed for the Redis-side "live today" lookups
+// (getActiveBucketKeysForUrls / getLiveTotalsByUrl), since those buckets are
+// keyed by url_id, not by user. NOT used for Mongo aggregation anymore —
+// see getTopUrlsForUser / getAllUrlTotalsForUser below.
 export const getUserUrlIds = async (userId) => {
   const urls = await ShortUrlSchema.find({ user: userId }, "_id").lean();
   return urls.map((u) => u._id);
 };
 
-// Top N URLs by total clicks across a date range, joined with URL metadata
-export const getTopUrlsForUser = async (urlIds, since, limit) => {
+// Top N URLs by total clicks across a date range, joined with URL metadata.
+// Matches on `user` directly (index-backed) and truncates with $limit
+// BEFORE the $lookup, so the join only ever runs against the handful of
+// URLs actually being returned, not the user's entire link history.
+export const getTopUrlsForUser = async (userId, since, limit) => {
   return ClickBucket.aggregate([
-    { $match: { url_id: { $in: urlIds }, date: { $gte: since } } },
+    { $match: { user: userId, date: { $gte: since } } },
     {
       $group: {
         _id: "$url_id",
@@ -96,13 +110,18 @@ export const getTopUrlsForUser = async (urlIds, since, limit) => {
   ]);
 };
 
-// All URLs' totals for a user, unranked/untruncated - used as the ranking
-// baseline for the leaderboard, so live totals can be merged in before
-// truncating to the requested limit (truncating first would hide a URL
-// that's spiking live today but wasn't already near the top in Mongo).
-export const getAllUrlTotalsForUser = async (urlIds, since) => {
+// All of a user's URL totals for a date range, ranked but NOT limited by
+// URL count anymore — this aggregates over the user's click *data*, which
+// is bounded by activity, not by how many links they've ever created.
+// Still unbounded on purpose: live totals get merged in before truncating
+// to the requested limit (truncating first would hide a URL that's
+// spiking live today but wasn't already near the top in Mongo). If a
+// single user's number of *distinct URLs with any historical clicks* ever
+// becomes a real concern, add a $limit here well above any realistic
+// leaderboard size (e.g. 500) as a safety valve.
+export const getAllUrlTotalsForUser = async (userId, since) => {
   return ClickBucket.aggregate([
-    { $match: { url_id: { $in: urlIds }, date: { $gte: since } } },
+    { $match: { user: userId, date: { $gte: since } } },
     { $group: { _id: "$url_id", clicks: { $sum: "$total" } } },
     {
       $lookup: {

@@ -1,13 +1,10 @@
 import {
-  findShortUrl,
-  findShortUrlbySlug,
   queryShortUrls,
   saveShortUrl,
   searchShortUrls,
 } from "../dao/shortUrl.js";
-import { ShortUrlSchema } from "../models/shortUrl.model.js";
 import { generateShortUrl } from "../utils/helper.js";
-import { AppError, conflictError } from "../utils/appError.js";
+import { AppError } from "../utils/appError.js";
 import { cacheUrl } from "../cache/url.redis.js";
 import { encodeCursor } from "../schema/urlQuery.validator.js";
 import { ErrorCodes } from "../utils/errorCodes.js";

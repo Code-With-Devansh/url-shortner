@@ -7,7 +7,7 @@ export const urlCacheKey = (shortCode) => `${URL_CACHE_PREFIX}${shortCode}`;
 
 export async function invalidateAnalyticsCache(urlId) {
   const exists = await redis.exists(`cache:analytics:url:${urlId}:30d:summary`);
-  if (!exists) return; 
+  if (!exists) return;
 
   await deleteByPattern(`cache:analytics:url:${urlId}:*`);
 
@@ -19,16 +19,22 @@ export async function invalidateAnalyticsCache(urlId) {
 
 async function deleteByPattern(pattern) {
   let cursor = "0";
+
   do {
-    const { cursor: next, keys } = await redis.scan(cursor, {
-      MATCH: pattern,
-      COUNT: 100,
-    });
-    if (keys.length) await redis.del(keys);
-    cursor = next;
+    const [nextCursor, keys] = await redis.scan(
+      cursor,
+      "MATCH",
+      pattern,
+      "COUNT",
+      100,
+    );
+    if (keys.length > 0) {
+      await redis.unlink(...keys);
+    }
+
+    cursor = nextCursor;
   } while (cursor !== "0");
 }
-
 
 export const analyticsCacheKey = (scope, id, range, extra = "") =>
   `cache:analytics:${scope}:${id}:${range}${extra ? ":" + extra : ""}`;

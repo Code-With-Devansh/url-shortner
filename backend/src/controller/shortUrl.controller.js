@@ -17,7 +17,7 @@ import {
   addUrlToBloom,
   checkIfExistinBloom,
 } from "../cache/redirectBloom.redis.js";
-import { withCache, withStampedeProtection } from "../utils/withCache.js";
+import { withStampedeProtection } from "../utils/withCache.js";
 import { urlCacheKey, URL_CACHE_TTL } from "../utils/cacheKeys.js";
 import {
   toCreateShortUrlDTO,

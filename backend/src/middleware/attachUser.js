@@ -1,10 +1,5 @@
-import { findUserById } from "../dao/user.dao.js";
-import { checkIfRefreshTokenExists } from "../services/auth.service.js";
 import {
-  generateAccessToken,
   getUserByAccessToken,
-  verifyRefreshToken,
-  verifyToken,
 } from "../utils/helper.js";
 
 export const attachUser = async (req, res, next) => {

@@ -66,7 +66,7 @@ export const parseUrlQueryParams = (query) => {
       : null;
 
   if (errors.length > 0) {
-    throw new ValidationError(errors.join(", "));
+    throw new ValidationError(errors);
   }
 
   return { limit, sortBy, order, cursor, search, isActive, expiryFilter };

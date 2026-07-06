@@ -1,9 +1,7 @@
 
-import { checkIfRefreshTokenExists } from "../services/auth.service.js";
 import { UnauthorizedError } from "../utils/appError.js";
 import { ErrorCodes } from "../utils/errorCodes.js";
 import {
-  generateAccessToken,
   getUserByAccessToken,
 } from "../utils/helper.js";
 

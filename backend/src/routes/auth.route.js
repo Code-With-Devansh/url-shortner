@@ -2,7 +2,6 @@ import express from 'express';
 import { changePassword, forgotPassword, get_current_user, login_user, logout_user, refreshAccessToken, register_user, sendVerificationLink, verificationStatus, verifyEmail } from '../controller/auth.controller.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
 import { loginLimiter, registerLimiter, emailLimiter, refreshLimiter } from '../middleware/rateLimiter.js';
-import { attachUser } from '../middleware/attachUser.js';
 
 const router = express.Router();
 

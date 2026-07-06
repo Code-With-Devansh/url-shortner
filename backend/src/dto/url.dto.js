@@ -3,7 +3,7 @@ import config from "../config/index.js";
 export const toUrlDTO = (doc) => ({
   id: doc._id.toString(),
   full_url: doc.full_url,
-  shortCode: doc.shortCode,
+  shortCode: doc.short_url,
   short_url: `${config.app.baseUrl}${doc.short_url}`,
   clicks: doc.clicks,
   isActive: doc.isActive,

@@ -73,7 +73,7 @@ export const loginUser = async (email, password, deviceInfo = {}) => {
   const accessToken = await generateAccessToken(user._id.toString());
   const refreshToken = await generateRefreshToken(user._id.toString());
   await cacheRefreshToken(user._id, refreshToken, deviceInfo?.deviceId);
-  await saveRefreshToken(user, refreshToken, deviceInfo);
+  await saveRefreshToken(user._id, refreshToken, deviceInfo);
   return { user: userObj, accessToken, refreshToken };
 };
 

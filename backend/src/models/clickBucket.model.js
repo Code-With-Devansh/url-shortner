@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 
 const clickBucketSchema = new mongoose.Schema({
   url_id:    { type: mongoose.Schema.Types.ObjectId, ref: 'Url', required: true },
+  user:      { type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true },  
   date:      { type: String, required: true },      
   total:     { type: Number, default: 0 },
   uniqueVisitors:{ type: Number },
@@ -16,6 +17,7 @@ const clickBucketSchema = new mongoose.Schema({
 });
 
 clickBucketSchema.index({ url_id: 1, date: -1 });
+clickBucketSchema.index({ user: 1, date: -1 });
 
 clickBucketSchema.index({ expires_at: 1 }, { expireAfterSeconds: 0 });
 

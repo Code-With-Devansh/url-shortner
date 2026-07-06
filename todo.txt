@@ -1,5 +1,6 @@
 0. auto logout. needs to be fixed.
-
+1. review the code by claude.   const url = await ShortUrlSchema.findById(urlId, "user").lean();
+  const userId = url?.user ?? null; db call need to be caious
 4. logging out during email verification raises a bug.
 
 arch Issues:

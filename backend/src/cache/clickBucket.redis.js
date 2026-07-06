@@ -40,7 +40,12 @@ export const getActiveBucketKeysForUrls = async (urlIds, date) => {
 
 export const hllArchiveKey = (urlId, date) => `analytics:hll:${urlId}:${date}`;
 
-export const archiveMinuteHll = async (urlId, date, minute, retentionSeconds) => {
+export const archiveMinuteHll = async (
+  urlId,
+  date,
+  minute,
+  retentionSeconds,
+) => {
   const source = hllKeyForBucket(minuteBucketKey(urlId, date, minute));
   const exists = await redis.exists(source);
   if (!exists) return;
@@ -77,10 +82,12 @@ export const saveClickToRedis = async (
   visitorHash,
   country,
   referer,
-  date,
-  hour,
+  timestamp,
 ) => {
-  const minute = minuteOf();
+  const dateObj = new Date(timestamp);
+  const date = dateObj.toISOString().split("T")[0];
+  const hour = dateObj.getHours().toString().padStart(2, "0");
+  const minute = minuteOf(timestamp);
   const key = minuteBucketKey(urlId, date, minute);
   const hllKey = hllKeyForBucket(key);
   const pipeline = redis.multi();
@@ -99,7 +106,6 @@ export const saveClickToRedis = async (
 
   await pipeline.exec();
 };
-
 
 export const getLiveTotalsByUrl = async (urlIds, date) => {
   const keys = await getActiveBucketKeysForUrls(urlIds, date);

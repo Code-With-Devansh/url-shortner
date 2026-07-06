@@ -55,7 +55,7 @@ export async function flushClaimedKey(processingKey) {
   const session = await mongoose.startSession();
   try {
     await session.withTransaction(async () => {
-      await saveClickBucket(
+      await saveClickBucket({
         urlId,
         date,
         totalClicks,
@@ -67,8 +67,8 @@ export async function flushClaimedKey(processingKey) {
         referers,
         hours,
         expireAt,
-        { session },
-      );
+        session,
+      });
 
       if (totalClicks > 0) {
         await ShortUrlSchema.updateOne(

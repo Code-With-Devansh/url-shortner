@@ -7,6 +7,10 @@ import {
   getAllUrlTotalsForUser,
 } from "../dao/clickBucket.dao.js";
 
+import redis from "../config/redis.config.js";
+import { ErrorCodes } from "../utils/errorCodes.js";
+import { safeIp } from "../utils/safeIp.js";
+
 import { findShortUrlByIdForUser, getUserUrlsMeta } from "../dao/shortUrl.js";
 import { NotFoundError, ValidationError } from "../utils/appError.js";
 import { analyticsCacheKey } from "../utils/cacheKeys.js";
@@ -65,9 +69,6 @@ function mergeBuckets(buckets) {
 
   for (const bucket of buckets) {
     summary.total += bucket.total || 0;
-    // NOTE: see "uniqueVisitors across days" caveat below — this sum is an
-    // upper bound, not a true unique count across the whole range.
-
     for (const dim of [
       "countries",
       "devices",
@@ -133,10 +134,7 @@ export async function recordClick(urlId, ttlDays, req) {
     timestamp: Date.now(),
   });
 }
-// reads bucket from redis for today only, returns null if no clicks yet today
-import redis from "../config/redis.config.js";
-import { ErrorCodes } from "../utils/errorCodes.js";
-import { safeIp } from "../utils/safeIp.js";
+
 
 async function aggregateBucketKeys(keys) {
   const countries = {};
@@ -148,9 +146,24 @@ async function aggregateBucketKeys(keys) {
   let total = 0;
   const hllKeys = [];
 
+  if (keys.length === 0) {
+    return { total, countries, devices, browsers, os, referers, hours, hllKeys };
+  }
+
+  const pipeline = redis.pipeline();
   for (const key of keys) {
-    const data = await redis.hgetall(key);
-    for (const [field, value] of Object.entries(data)) {
+    pipeline.hgetall(key);
+  }
+  const results = await pipeline.exec();
+
+  for (let i = 0; i < keys.length; i++) {
+    const [err, data] = results[i];
+    if (err) {
+      // Don't let one bad bucket kill the whole aggregation
+      continue;
+    }
+
+    for (const [field, value] of Object.entries(data || {})) {
       const count = Number(value);
       if (field === "total") total += count;
       else if (field.startsWith("country:")) countries[field.slice(8)] = (countries[field.slice(8)] || 0) + count;
@@ -160,7 +173,8 @@ async function aggregateBucketKeys(keys) {
       else if (field.startsWith("referer:")) referers[field.slice(8)] = (referers[field.slice(8)] || 0) + count;
       else if (field.startsWith("hour:")) hours[field.slice(5)] = (hours[field.slice(5)] || 0) + count;
     }
-    hllKeys.push(hllKeyForBucket(key));
+
+    hllKeys.push(hllKeyForBucket(keys[i]));
   }
 
   return { total, countries, devices, browsers, os, referers, hours, hllKeys };

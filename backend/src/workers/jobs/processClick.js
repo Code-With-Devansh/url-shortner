@@ -10,18 +10,12 @@ export const processClick = async (data) => {
     .createHash("sha256")
     .update(`${ip}:${userAgent}`)
     .digest("hex");
-  const dateObj = new Date(timestamp);
-  const date = dateObj.toISOString().split("T")[0];
-  const hour = dateObj.getHours().toString().padStart(2, "0");
-  const minute = minuteOf(timestamp);
   await saveClickToRedis(
     urlId,
     ua,
     visitorHash,
     country,
     referer,
-    date,
-    hour,
-    minute,
+    timestamp
   );
 };

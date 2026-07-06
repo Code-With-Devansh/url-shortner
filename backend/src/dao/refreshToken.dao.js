@@ -6,13 +6,13 @@ function hashToken(token) {
   return crypto.createHash("sha256").update(token).digest("hex");
 }
 
-export const saveRefreshToken = async (user, token, deviceInfo) => {
+export const saveRefreshToken = async (userId, token, deviceInfo) => {
   const hashedToken = hashToken(token);
   const expiresAt = new Date(Date.now() + refreshTokenCookieOptions.maxAge);
 
   const refreshToken = await RefreshToken.findOneAndUpdate(
     {
-      user: user._id,
+      user: userId,
       "deviceInfo.deviceId": deviceInfo.deviceId,
     },
     {
