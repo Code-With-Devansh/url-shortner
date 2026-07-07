@@ -6,6 +6,11 @@ export const minuteBucketKey = (urlId, date, minute) =>
 
 export const hllKeyForBucket = (bucketKey) => `${bucketKey}:visitors`;
 
+
+export const activeSetKeyForUrl = (urlId) => `analytics:active:${urlId}`;
+
+export const ANALYTICS_DUE_ZSET = "analytics:due";
+
 export const minuteOf = (timestampMs = Date.now()) => {
   const d = new Date(timestampMs);
   const hh = d.getUTCHours().toString().padStart(2, "0");
@@ -13,39 +18,36 @@ export const minuteOf = (timestampMs = Date.now()) => {
   return `${hh}:${mm}`;
 };
 
+
+export const bucketDueAt = (date, minute) =>
+  Date.parse(`${date}T${minute}:00.000Z`) + 60_000;
+
 export const isBucketDueForFlush = (date, minute, graceMs = 60_000) => {
-  const bucketWindowEnd = Date.parse(`${date}T${minute}:00.000Z`) + 60_000;
-  return Date.now() >= bucketWindowEnd + graceMs;
+  return Date.now() >= bucketDueAt(date, minute) + graceMs;
 };
 
 export const getActiveBucketKeysForDate = async (urlId, date) => {
   const prefix = `analytics:${urlId}:${date}:`;
-  const active = await redis.smembers("analytics:active");
+  const active = await redis.smembers(activeSetKeyForUrl(urlId));
   return active.filter((k) => k.startsWith(prefix) && !k.endsWith(":visitors"));
 };
 
 export const getActiveBucketKeysForUrls = async (urlIds, date) => {
-  const idSet = new Set(urlIds.map(String));
-  const active = await redis.smembers("analytics:active");
+  if (urlIds.length === 0) return [];
+  const setKeys = urlIds.map((id) => activeSetKeyForUrl(id));
+  const active = await redis.sunion(...setKeys);
   return active.filter((k) => {
     if (k.endsWith(":visitors")) return false;
     const parts = k.split(":");
-    // ["analytics", urlId, date, HH, MM] — date has no colons, so this is
-    // a fixed-position parse regardless of the minute's own colon.
     if (parts.length < 5) return false;
-    const [, kUrlId, kDate] = parts;
-    return kDate === date && idSet.has(kUrlId);
+    const [, , kDate] = parts;
+    return kDate === date;
   });
 };
 
 export const hllArchiveKey = (urlId, date) => `analytics:hll:${urlId}:${date}`;
 
-export const archiveMinuteHll = async (
-  urlId,
-  date,
-  minute,
-  retentionSeconds,
-) => {
+export const archiveMinuteHll = async (urlId, date, minute, retentionSeconds) => {
   const source = hllKeyForBucket(minuteBucketKey(urlId, date, minute));
   const exists = await redis.exists(source);
   if (!exists) return;
@@ -86,7 +88,7 @@ export const saveClickToRedis = async (
 ) => {
   const dateObj = new Date(timestamp);
   const date = dateObj.toISOString().split("T")[0];
-  const hour = dateObj.getHours().toString().padStart(2, "0");
+  const hour = dateObj.getUTCHours().toString().padStart(2, "0");
   const minute = minuteOf(timestamp);
   const key = minuteBucketKey(urlId, date, minute);
   const hllKey = hllKeyForBucket(key);
@@ -102,10 +104,12 @@ export const saveClickToRedis = async (
   pipeline.expire(key, 172800, "NX");
   pipeline.pfadd(hllKey, visitorHash);
   pipeline.expire(hllKey, 172800, "NX");
-  pipeline.sadd("analytics:active", key);
+  pipeline.sadd(activeSetKeyForUrl(urlId), key);
+  pipeline.zadd(ANALYTICS_DUE_ZSET, bucketDueAt(date, minute), key);
 
   await pipeline.exec();
 };
+
 
 export const getLiveTotalsByUrl = async (urlIds, date) => {
   const keys = await getActiveBucketKeysForUrls(urlIds, date);
@@ -125,4 +129,4 @@ export const getLiveTotalsByUrl = async (urlIds, date) => {
   });
 
   return totals;
-};
+};  

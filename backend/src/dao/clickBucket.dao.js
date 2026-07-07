@@ -1,7 +1,7 @@
 import { ShortUrlSchema } from "../models/shortUrl.model.js";
 import ClickBucket from '../models/clickBucket.model.js';
 
-export const saveClickBucket = async (
+export const saveClickBucket = async ({
   urlId,
   userId,
   date,
@@ -14,8 +14,8 @@ export const saveClickBucket = async (
   referers,
   hours,
   expireAt,
-  options = {},
-) => {
+  session,
+}) => {
   const inc = { total: totalClicks };
   const addDimension = (name, counts) => {
     for (const [key, count] of Object.entries(counts)) {
@@ -33,12 +33,9 @@ export const saveClickBucket = async (
     { url_id: urlId, date },
     {
       $inc: inc,
-      // `user` is set (not incremented) on every upsert — harmless to repeat,
-      // and lets an already-existing bucket pick up `user` retroactively if
-      // it was created before this field existed.
       $set: { uniqueVisitors, expires_at: expireAt, user: userId },
     },
-    { upsert: true, session: options.session },
+    { upsert: true, session },
   );
 };
 

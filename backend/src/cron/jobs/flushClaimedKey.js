@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import { saveClickBucket } from "../../dao/clickBucket.dao.js";
 import { ShortUrlSchema } from "../../models/shortUrl.model.js";
 import redis from "../../config/redis.config.js";
+import logger from "../../logger/index.js";
 import { invalidateAnalyticsCache } from "../../utils/cacheKeys.js";
 import {
   archiveMinuteHll,
@@ -52,11 +53,20 @@ export async function flushClaimedKey(processingKey) {
     : 0;
   const expireAt = new Date(Date.now() + RETENTION_DAYS * 86400000);
 
+  // Denormalize `user` onto the bucket so overall/leaderboard queries can
+  // filter directly on { user, date } instead of resolving the user's
+  // entire url_id list first (see dao/clickBucket.dao.js). This is a plain
+  // read outside the transaction — it's just metadata lookup, not part of
+  // the write we need atomicity on.
+  const url = await ShortUrlSchema.findById(urlId, "user").lean();
+  const userId = url?.user ?? null;
+
   const session = await mongoose.startSession();
   try {
     await session.withTransaction(async () => {
       await saveClickBucket({
         urlId,
+        userId,
         date,
         totalClicks,
         uniqueVisitors,
@@ -68,7 +78,7 @@ export async function flushClaimedKey(processingKey) {
         hours,
         expireAt,
         session,
-      });
+    });
 
       if (totalClicks > 0) {
         await ShortUrlSchema.updateOne(
@@ -86,7 +96,12 @@ export async function flushClaimedKey(processingKey) {
 
   await redis.del(processingKey);
   await redis.zrem("processing:active", processingKey);
-  await invalidateAnalyticsCache(urlId);
+  // The Mongo write above already committed successfully at this point —
+  // a failure here just means the cache stays stale for up to its 60s TTL,
+  // not that the flush itself should be treated as failed/retried.
+  await invalidateAnalyticsCache(urlId).catch((err) => {
+    logger.warn({ err, urlId }, "analytics cache invalidation failed after successful flush");
+  });
 
   return totalClicks > 0 ? { urlId, totalClicks } : null;
 }

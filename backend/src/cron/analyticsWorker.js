@@ -3,6 +3,7 @@ import { mongoConnection } from "../config/mongo.config.js";
 import redis from "../config/redis.config.js";
 import logger from "../logger/index.js";
 import crypto from "crypto";
+import { ANALYTICS_DUE_ZSET } from "../cache/clickBucket.redis.js";
 
 const jobLogger = logger.child({
   service: "cron",
@@ -11,11 +12,11 @@ const jobLogger = logger.child({
 });
 
 const start = Date.now();
+const GRACE_MS = 10_000;
 
 try {
   await mongoConnection;
-
-  const keys = await redis.smembers("analytics:active");
+  const keys = await redis.zrangebyscore(ANALYTICS_DUE_ZSET, "-inf", Date.now() - GRACE_MS);
 
   if (keys.length === 0) {
     jobLogger.info("no keys to flush, exiting");

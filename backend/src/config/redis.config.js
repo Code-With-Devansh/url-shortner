@@ -23,7 +23,7 @@ if (config.redis.password) {
 const client = new IORedis(options);
 
 client.defineCommand("claimAnalyticsKey", {
-  numberOfKeys: 4,
+  numberOfKeys: 5,
   lua: fs.readFileSync(
     path.join(process.cwd(), "src/lua/analyticsClaim.lua"),
     "utf8",
