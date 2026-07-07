@@ -5,7 +5,7 @@ import crypto from "crypto";
 const { randomUUID } = crypto;
 export const requestLogger = pinoHttp({
   logger,
-  autoLogging: { ignore: (req) => req.url === "/api/health" },
+  autoLogging: { ignore: (req) => req.url === "/api/health" || req.url === "/api/metrics" },
   genReqId: (req, res) => {
     const existingId = req.id ?? req.headers["x-request-id"];
     if (existingId) return existingId;

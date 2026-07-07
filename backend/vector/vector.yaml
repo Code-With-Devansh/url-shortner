@@ -18,7 +18,6 @@ transforms:
     source: |
       . = parse_json!(.message)
       .host = get_hostname!()
-      .container = .container_name
 
 
 sinks:
@@ -31,7 +30,7 @@ sinks:
       codec: json
     out_of_order_action: rewrite_timestamp
     labels:
-      service: "{{ container }}"
+      service: "{{ service }}"
       host: "{{ host }}"
 
   console:
