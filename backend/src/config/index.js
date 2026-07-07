@@ -26,6 +26,9 @@ export default {
    logging: {
     level: process.env.LOG_LEVEL,
   },
+  sentry:{
+    dsn:process.env.SENTRY_DSN
+  },
   passwordPepper:process.env.PASSWORD_PEPPER,
   useAtlasSearch:process.env.USE_ATLAS_SEARCH,
   rangeSize: Number.parseInt(process.env.RANGE_SIZE),

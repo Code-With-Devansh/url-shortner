@@ -29,7 +29,7 @@ export const errorHandler = (err, req, res, next) => {
       requestId,
     });
   }
-
+  
   logger.error(
     { err, url: req.url, method: req.method, stack: err.stack, requestId },
     "Unhandled error",

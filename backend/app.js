@@ -1,6 +1,8 @@
 import express from "express";
 import cors from "cors";
 import shortUrlRoute from "./src/routes/shortUrl.route.js";
+import mongoose from "mongoose";
+import redis from "./src/config/redis.config.js";
 import authRoute from "./src/routes/auth.route.js";
 import { redirectFromShortUrl } from "./src/controller/shortUrl.controller.js";
 import { errorHandler } from "./src/utils/errorHandler.js";
@@ -13,7 +15,10 @@ import helmet from "helmet";
 import analyticsRoute from "./src/routes/analytics.route.js";
 import {tokenBucketLimiter} from "./src/utils/tokenBucketLimiter.js";
 import { concurrencyLimiter, getInFlightCount } from "./src/middleware/concurrencyLimiter.js";
+import { register } from "./src/config/metrics.js";
 import config from "./src/config/index.js";
+import Sentry from "./src/config/sentry.config.js";
+import { metricsMiddleware } from "./src/middleware/metrics.js";
 // capacity = burst size, refillPerSec = sustained steady-state rate.
 // These are starting points sized generously above a guessed legitimate
 // peak (a single real visitor rarely re-clicks a link more than once or
@@ -54,19 +59,28 @@ app.use("/api", shortUrlRoute);
 app.use("/api/analytics", analyticsRoute);
 app.use("/api/auth", authRoute);
 app.use("/api/user", userRoute);
-app.get("/api/health", (req, res) => {
+app.get("/api/health", async(req, res) => {
   if (isShuttingDown()) {
     return res.status(503).json({
       success: false,
       status: "shutting_down",
     });
   }
-  return res.json({
-    success: true,
-    inFlight: getInFlightCount(),
-  });
+  const checks = {
+    mongo: mongoose.connection.readyState === 1,
+    redis: await redis.ping().then(() => true).catch(() => false),
+  };
+  const healthy = Object.values(checks).every(Boolean);
+  res.status(healthy ? 200 : 503).json({ status: healthy ? 'ok' : 'degraded', checks })
+});
+app.get("/api/metrics", async (req, res) => {
+    res.set("Content-Type", register.contentType);
+    res.end(await register.metrics());
 });
 app.get("/:shortId", redirectLimiter, redirectFromShortUrl);
+app.use(metricsMiddleware)
+Sentry.setupExpressErrorHandler(app);
+
 app.use(errorHandler);
 
 export default app;

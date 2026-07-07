@@ -22,12 +22,17 @@ transforms:
 
 
 sinks:
-  axiom:
-    type: axiom
+  loki:
+    type: loki
     inputs:
       - parse_json
-    token: "${AXIOM_TOKEN}"
-    dataset: "${AXIOM_DATASET}"
+    endpoint: "http://loki:3100"
+    encoding:
+      codec: json
+    out_of_order_action: rewrite_timestamp
+    labels:
+      service: "{{ container }}"
+      host: "{{ host }}"
 
   console:
     type: console
