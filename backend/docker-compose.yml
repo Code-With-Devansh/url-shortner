@@ -185,7 +185,16 @@ services:
     ports:
       # Bound to loopback only - host nginx proxies to this from outside.
       - "127.0.0.1:3001:3000"
-
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: node-exporter
+    restart: unless-stopped
+    network_mode: host
+    pid: host
+    volumes:
+      - /:/host:ro,rslave
+    command:
+      - '--path.rootfs=/host'
 networks:
   internal:
     driver: bridge
