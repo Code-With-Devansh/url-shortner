@@ -46,7 +46,6 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use("/static", express.static("public"));
 
-app.use(metricsMiddleware)
 app.use((req, res, next) => {
   if (isShuttingDown()) {
     return res.status(503).json({
@@ -79,6 +78,7 @@ app.get("/api/metrics", async (req, res) => {
     res.end(await register.metrics());
 });
 app.get("/:shortId", redirectLimiter, redirectFromShortUrl);
+app.use(metricsMiddleware)
 Sentry.setupExpressErrorHandler(app);
 
 app.use(errorHandler);
