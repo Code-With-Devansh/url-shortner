@@ -1,5 +1,4 @@
 import "dotenv/config";
-import "./src/config/sentry.config.js";
 import mongoose from "mongoose";
 import redis from "./src/config/redis.config.js";
 import logger from "./src/logger/index.js";
@@ -43,7 +42,7 @@ async function gracefulShutdown(signal) {
 
 async function startServer() {
   try {
-    await Promise.all([mongoConnection, idGenerator.initialize()]);
+    await Promise.all([mongoConnection, idGenerator.initialize()])
     const { default: app } = await import("./app.js");
     const PORT = config.app.port || 5000;
 
@@ -54,13 +53,11 @@ async function startServer() {
     process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
     process.on("SIGINT", () => gracefulShutdown("SIGINT"));
     process.on("unhandledRejection", (reason) => {
-      Sentry.captureException(reason);
       logger.fatal({ reason }, "Unhandled Rejection");
       gracefulShutdown("UNHANDLED_REJECTION");
     });
 
     process.on("uncaughtException", (err) => {
-      Sentry.captureException(err);
       logger.fatal({ err }, "Uncaught Exception");
       gracefulShutdown("UNCAUGHT_EXCEPTION");
     });

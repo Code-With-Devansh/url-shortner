@@ -130,61 +130,17 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./vector/vector.yaml:/etc/vector/vector.yaml:ro
+    environment:
+      AXIOM_TOKEN: ${AXIOM_TOKEN}
+      AXIOM_DATASET: ${AXIOM_DATASET}
     depends_on:
       - server
       - server2
       - worker-click
       - worker-email
       - cron
-      - loki
     networks:
       - internal
-
-  loki:
-    container_name: loki
-    image: grafana/loki:latest
-    restart: unless-stopped
-    volumes:
-      - loki_data:/loki
-    networks:
-      - internal
-    # Not published to the host on purpose - only Vector (Loki client) and
-    # Grafana (Loki datasource) need to reach it, and both are on the
-    # internal network already.
-
-  prometheus:
-    container_name: prometheus
-    image: prom/prometheus
-    restart: unless-stopped
-    volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml
-      - prometheus_data:/prometheus
-    networks:
-      - internal
-    ports:
-      # Bound to loopback only - reachable from the EC2 box itself (e.g. for
-      # debugging with an SSH tunnel) but never exposed to the internet.
-      - "127.0.0.1:9090:9090"
-
-  grafana:
-    container_name: grafana
-    image: grafana/grafana
-    restart: unless-stopped
-    environment:
-      - GF_SERVER_ROOT_URL=https://${GRAFANA_DOMAIN}
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
-      - GF_USERS_ALLOW_SIGN_UP=false
-    volumes:
-      - grafana_data:/var/lib/grafana
-      - ./grafana/provisioning:/etc/grafana/provisioning:ro
-    depends_on:
-      - prometheus
-      - loki
-    networks:
-      - internal
-    ports:
-      # Bound to loopback only - host nginx proxies to this from outside.
-      - "127.0.0.1:3001:3000"
 
 networks:
   internal:
@@ -193,6 +149,3 @@ networks:
 volumes:
   redis_data:
   geoip_data:
-  loki_data:
-  prometheus_data:
-  grafana_data:
