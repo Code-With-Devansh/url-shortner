@@ -189,8 +189,7 @@ services:
     image: prom/node-exporter:latest
     container_name: node-exporter
     restart: unless-stopped
-    networks:
-    - internal
+    network_mode: host
     pid: host
     volumes:
       - /:/host:ro,rslave
