@@ -8,8 +8,3 @@ scrape_configs:
       - targets:
           - api:5000
           - api2:5000
-
-  - job_name: "node"
-    static_configs:
-      - targets:
-          - node-exporter:9100
