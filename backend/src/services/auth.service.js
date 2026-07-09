@@ -21,6 +21,8 @@ import {
   delCachedRefreshToken,
   getCachedRefreshToken,
   getUserIdBySessionToken,
+  readAndDeleteClaimRecord,
+  saveClaimRecord,
   saveSessionTokenToRedis,
 } from "../cache/user.redis.js";
 import { emailQueue } from "../queues/queues.js";
@@ -202,10 +204,12 @@ export const queueEmailVerification = async (user) => {
 };
 export const queuePasswordReset = async (user) => {
   const token = await generateAndStorePasswordResetToken(user);
-  await emailQueue.add("send-ResetPassword-link", {
-    to: user.email,
-    template: "forgot-password",
-    name: user.name,
-    token: token,
-  });
+  if(token){
+    await emailQueue.add("send-ResetPassword-link", {
+      to: user.email,
+      template: "forgot-password",
+      name: user.name,
+      token: token,
+    });
+  }
 };

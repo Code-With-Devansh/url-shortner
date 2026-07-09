@@ -31,9 +31,9 @@ export const findShortUrlbySlug = async (slug) => {
   return shortUrl;
 };
 
-export const deleteShortUrlDao = async (id, userId) => {
+export const deleteShortUrlDao = async (slug, userId) => {
   const shortUrl = await ShortUrlSchema.findOneAndDelete({
-    _id: id,
+    short_url: slug,
     user: userId,
   });
   return shortUrl;

@@ -4,7 +4,6 @@ import {
   getBucketsByUser,
   getUserUrlIds,
   getTopUrlsForUser,
-  getAllUrlTotalsForUser,
 } from "../dao/clickBucket.dao.js";
 
 import redis from "../config/redis.config.js";

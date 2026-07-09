@@ -68,17 +68,21 @@ export const mergeUniqueVisitors = async (keys) => {
   const uniqueKeys = [...new Set(keys)];
   if (uniqueKeys.length === 0) return 0;
 
-  const existing = [];
-  for (const key of uniqueKeys) {
-    if (await redis.exists(key)) existing.push(key);
+  if (uniqueKeys.length === 1) {
+    return redis.pfcount(uniqueKeys[0]);
   }
-  if (existing.length === 0) return 0;
-  if (existing.length === 1) return await redis.pfcount(existing[0]);
 
   const scratchKey = `tmp:hllmerge:${crypto.randomUUID()}`;
+
   try {
-    await redis.pfmerge(scratchKey, ...existing);
-    return await redis.pfcount(scratchKey);
+    const [, , count] = await redis
+      .multi()
+      .pfmerge(scratchKey, ...uniqueKeys)
+      .expire(scratchKey, 30)
+      .pfcount(scratchKey)
+      .exec();
+
+    return count;
   } finally {
     await redis.del(scratchKey).catch(() => {});
   }

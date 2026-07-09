@@ -1,9 +1,9 @@
 import { Queue } from "bullmq";
 import logger from "../logger/index.js";
-import bullmqClient from "../config/bullmq.config.js";
+import redis from "../config/redis.config.js";
 
 export const clickQueue = new Queue("clicks", {
-  connection: bullmqClient,
+  connection: redis,
   defaultJobOptions: {
     removeOnComplete: {
       count: 0,
@@ -15,7 +15,7 @@ export const clickQueue = new Queue("clicks", {
 });
 
 export const emailQueue = new Queue("emails", {
-  connection: bullmqClient,
+  connection: redis,
   defaultJobOptions: {
     removeOnComplete: {
       count: 0,

@@ -1,6 +1,7 @@
 import { getOverallAnalyticsBreakdown, getOverallAnalyticsLeaderboard, getOverallAnalyticsSummary, getOverallAnalyticsTimeseries, getUrlAnalyticsBreakdown, getUrlAnalyticsSummary, getUrlAnalyticsTimeseries } from "../services/analytics.service.js";
 import tryCatch from "../utils/tryCatch.js";
 import { overallLeaderboardDTO, toAnalyticsResponseDTO, toOverallSummaryDTO, toUrlSummary } from "../dto/analytics.dto.js";
+import { ValidationError } from "../utils/appError.js";
 
 // Per - Url
 export const getUrlSummary = tryCatch(async (req, res, next) => {
@@ -57,6 +58,9 @@ export const getOverallBreakdown = tryCatch(async (req, res, next) => {
 
 export const getOverallLeaderboard = tryCatch(async (req, res, next) => {
   const limit = Number(req.query.limit) || 10;
+  if(limit<=0){
+    throw new ValidationError({limit:"Enter a valid Limit."})
+  }
   const data = await getOverallAnalyticsLeaderboard(
     req.user._id,
     req.query.range,

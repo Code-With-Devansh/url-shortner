@@ -73,7 +73,7 @@ export const saveSessionTokenToRedis = async (userId, sessionToken, ttl) => {
     .createHash("sha256")
     .update(sessionToken)
     .digest("hex");
-  await await redis.set(`session:${hashedToken}`, userId, "EX", ttl);
+  await redis.set(`session:${hashedToken}`, userId, "EX", ttl);
 };
 
 export const delSessionTokenFromRedis = async (sessionToken) => {

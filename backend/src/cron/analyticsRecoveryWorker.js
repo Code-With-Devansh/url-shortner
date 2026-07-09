@@ -3,6 +3,7 @@ import { mongoConnection } from "../config/mongo.config.js";
 import redis from "../config/redis.config.js";
 import logger from "../logger/index.js";
 import crypto from "crypto";
+import config from "../config/index.js";
 
 const jobLogger = logger.child({
   service: "cron",
@@ -11,7 +12,7 @@ const jobLogger = logger.child({
 });
 
 const STALE_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
-const CONCURRENCY = 1;
+const CONCURRENCY = config.analyticsRecoveryWorker.concurrency;
 
 const start = Date.now();
 

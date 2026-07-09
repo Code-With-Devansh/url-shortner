@@ -2,6 +2,7 @@ import { Worker } from "bullmq";
 import redis from "../config/redis.config.js";
 import { processClick } from "./jobs/processClick.js";
 import logger from "../logger/index.js";
+import config from "../config/index.js";
 
 const worker = new Worker(
   "clicks",
@@ -9,7 +10,7 @@ const worker = new Worker(
     await processClick(job.data);
     logger.debug({ jobId: job.id }, "Analytics job completed");
   },
-  { connection: redis, concurrency: 10}
+  { connection: redis, concurrency: config.clickWorker.concurrency}
 );
 
 worker.on("failed", (job, err) => {

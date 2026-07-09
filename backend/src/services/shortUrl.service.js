@@ -61,6 +61,7 @@ export const createShortUrlWithUserService = async (
       id = await generateShortUrl();
       try {
         shortUrl = await saveShortUrl(url, id, userId);
+        await cacheUrl(id, { id: shortUrl._id, user: userId, full_url: url, isActive: true });
         return id;
       } catch (err) {
         if (err.code === "URL_SLUG_TAKEN") continue;

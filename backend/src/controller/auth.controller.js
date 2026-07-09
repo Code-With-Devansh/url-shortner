@@ -152,7 +152,7 @@ export const logout_user = tryCatch(async (req, res, next) => {
 
 export const sendVerificationLink = tryCatch(async (req, res, next) => {
   const { email } = req.body;
-  const validated = UserSchema.pick({ email }).safeParse({ email });
+  const validated = UserSchema.pick({ email:true }).safeParse({ email });
   if (!validated.success) {
     throw new ValidationError(generateValidationErrors(validated));
   }
@@ -168,7 +168,7 @@ export const verifyEmail = tryCatch(async (req, res, next) => {
 
 export const forgotPassword = tryCatch(async (req, res, next) => {
   const { email } = req.body;
-  const validated = UserSchema.pick({ email }).safeParse({ email });
+  const validated = UserSchema.pick({ email:true }).safeParse({ email });
   if (!validated.success) {
     throw new ValidationError(generateValidationErrors(validated));
   }

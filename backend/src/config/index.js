@@ -26,6 +26,12 @@ export default {
    logging: {
     level: process.env.LOG_LEVEL,
   },
+  clickWorker:{
+    concurrency: Number(process.env.CLICK_WORKER_CONCURRENCY)
+  },
+  analyticsRecoveryWorker:{
+    concurrency:Number(process.env.ANALYTICS_RECOVERY_WORKER_CONCURRENCY)
+  },
   passwordPepper:process.env.PASSWORD_PEPPER,
   useAtlasSearch:process.env.USE_ATLAS_SEARCH,
   rangeSize: Number.parseInt(process.env.RANGE_SIZE),
