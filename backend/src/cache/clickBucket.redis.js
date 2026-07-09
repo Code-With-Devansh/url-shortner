@@ -6,7 +6,6 @@ export const minuteBucketKey = (urlId, date, minute) =>
 
 export const hllKeyForBucket = (bucketKey) => `${bucketKey}:visitors`;
 
-
 export const activeSetKeyForUrl = (urlId) => `analytics:active:${urlId}`;
 
 export const ANALYTICS_DUE_ZSET = "analytics:due";
@@ -17,7 +16,6 @@ export const minuteOf = (timestampMs = Date.now()) => {
   const mm = d.getUTCMinutes().toString().padStart(2, "0");
   return `${hh}:${mm}`;
 };
-
 
 export const bucketDueAt = (date, minute) =>
   Date.parse(`${date}T${minute}:00.000Z`) + 60_000;
@@ -47,7 +45,13 @@ export const getActiveBucketKeysForUrls = async (urlIds, date) => {
 
 export const hllArchiveKey = (urlId, date) => `analytics:hll:${urlId}:${date}`;
 
-export const archiveMinuteHll = async (urlId, date, minute, retentionSeconds) => {
+export const archiveMinuteHll = async (
+  urlId,
+  date,
+  minute,
+  retentionSeconds,
+  deleteSource = true,
+) => {
   const source = hllKeyForBucket(minuteBucketKey(urlId, date, minute));
   const exists = await redis.exists(source);
   if (!exists) return;
@@ -55,7 +59,9 @@ export const archiveMinuteHll = async (urlId, date, minute, retentionSeconds) =>
   const archive = hllArchiveKey(urlId, date);
   await redis.pfmerge(archive, archive, source);
   await redis.expire(archive, retentionSeconds);
-  await redis.del(source);
+  if (deleteSource) {
+    await redis.del(source);
+  }
 };
 
 export const mergeUniqueVisitors = async (keys) => {
@@ -78,14 +84,15 @@ export const mergeUniqueVisitors = async (keys) => {
   }
 };
 
-export const saveClickToRedis = async (
+export const saveClickToRedis = async ({
   urlId,
+  userId,
   ua,
   visitorHash,
   country,
   referer,
   timestamp,
-) => {
+}) => {
   const dateObj = new Date(timestamp);
   const date = dateObj.toISOString().split("T")[0];
   const hour = dateObj.getUTCHours().toString().padStart(2, "0");
@@ -93,7 +100,9 @@ export const saveClickToRedis = async (
   const key = minuteBucketKey(urlId, date, minute);
   const hllKey = hllKeyForBucket(key);
   const pipeline = redis.multi();
-
+  if (userId) {
+    pipeline.hsetnx(key, "userId", userId.toString());
+  }
   pipeline.hincrby(key, "total", 1);
   pipeline.hincrby(key, `country:${country}`, 1);
   pipeline.hincrby(key, `device:${ua.device.type || "Desktop"}`, 1);
@@ -109,7 +118,6 @@ export const saveClickToRedis = async (
 
   await pipeline.exec();
 };
-
 
 export const getLiveTotalsByUrl = async (urlIds, date) => {
   const keys = await getActiveBucketKeysForUrls(urlIds, date);
@@ -129,4 +137,4 @@ export const getLiveTotalsByUrl = async (urlIds, date) => {
   });
 
   return totals;
-};  
+};

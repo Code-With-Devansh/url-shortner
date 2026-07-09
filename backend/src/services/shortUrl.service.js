@@ -70,7 +70,7 @@ export const createShortUrlWithUserService = async (
 
     throw new AppError("Failed to generate short URL", 500);
   }
-  await cacheUrl(id, { id: shortUrl._id, full_url: url, isActive: true });
+  await cacheUrl(id, { id: shortUrl._id, user: userId, full_url: url, isActive: true });
   return id;
 };
 

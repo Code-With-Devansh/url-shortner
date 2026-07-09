@@ -72,13 +72,6 @@ export const redirectFromShortUrl = tryCatch(async (req, res, next) => {
   if (Number(mightExists) === 0) {
     throw new NotFoundError("Short URL not found", ErrorCodes.URL_NOT_FOUND);
   }
-  // Reachable here despite the bloom check above in two cases: a bloom
-  // false-positive (expected, rare, by design), or a slug that's in the
-  // bloom filter but was later deactivated/deleted. withCache now caches
-  // that `null` result too (negative caching), but with a short TTL of
-  // its own — NOT the 24h URL_CACHE_TTL used for real hits — so a
-  // recently-deactivated or not-yet-existing slug doesn't stay stuck
-  // behind a stale "not found" for a full day.
   const NOT_FOUND_CACHE_TTL = 60;
 
   const shortUrlData = await withStampedeProtection(
@@ -91,6 +84,7 @@ export const redirectFromShortUrl = tryCatch(async (req, res, next) => {
       }
       return {
         id: shortUrl._id,
+        user:shortUrl.user,
         full_url: shortUrl.full_url,
         isActive: shortUrl.isActive,
       };
@@ -113,7 +107,7 @@ export const redirectFromShortUrl = tryCatch(async (req, res, next) => {
     );
   }
   try {
-    await recordClick(shortUrlData.id, 3, req);
+    await recordClick(shortUrlData.id, shortUrlData.user, 3, req);
   } catch (err){
     logger.warn("Failed to record click for short URL: " + shortId);
   }

@@ -19,14 +19,15 @@ export async function flushClaimedKey(processingKey) {
   const minute = `${hh}:${mm}`;
 
   const data = await redis.hgetall(processingKey);
-
-  if (!data || Object.keys(data).length === 0) {
+  if (Object.keys(data).length === 0) {
     // nothing to flush — clean up the claim and bail
     await redis.del(processingKey);
     await redis.zrem("processing:active", processingKey);
     return null;
   }
 
+  const userId = data.userId || null;
+  delete data.userId;
   const countries = {};
   const devices = {};
   const browsers = {};
@@ -46,21 +47,16 @@ export async function flushClaimedKey(processingKey) {
     else if (field.startsWith("hour:")) hours[field.slice(5)] = count;
   }
 
-  await archiveMinuteHll(urlId, date, minute, RETENTION_SECONDS);
+  const expireAt = new Date(Date.now() + RETENTION_DAYS * 86400000);
   const archiveKey = hllArchiveKey(urlId, date);
   const uniqueVisitors = (await redis.exists(archiveKey))
     ? await redis.pfcount(archiveKey)
     : 0;
-  const expireAt = new Date(Date.now() + RETENTION_DAYS * 86400000);
-
   // Denormalize `user` onto the bucket so overall/leaderboard queries can
   // filter directly on { user, date } instead of resolving the user's
   // entire url_id list first (see dao/clickBucket.dao.js). This is a plain
   // read outside the transaction — it's just metadata lookup, not part of
   // the write we need atomicity on.
-  const url = await ShortUrlSchema.findById(urlId, "user").lean();
-  const userId = url?.user ?? null;
-
   const session = await mongoose.startSession();
   try {
     await session.withTransaction(async () => {
@@ -78,7 +74,7 @@ export async function flushClaimedKey(processingKey) {
         hours,
         expireAt,
         session,
-    });
+      });
 
       if (totalClicks > 0) {
         await ShortUrlSchema.updateOne(
@@ -93,14 +89,17 @@ export async function flushClaimedKey(processingKey) {
   }
   // if withTransaction threw, we fall out of this function via the throw below —
   // processing key and ZSET entry are deliberately left in place for retry
-
+  await archiveMinuteHll(urlId, date, minute, RETENTION_SECONDS, true);
   await redis.del(processingKey);
   await redis.zrem("processing:active", processingKey);
   // The Mongo write above already committed successfully at this point —
   // a failure here just means the cache stays stale for up to its 60s TTL,
   // not that the flush itself should be treated as failed/retried.
   await invalidateAnalyticsCache(urlId).catch((err) => {
-    logger.warn({ err, urlId }, "analytics cache invalidation failed after successful flush");
+    logger.warn(
+      { err, urlId },
+      "analytics cache invalidation failed after successful flush",
+    );
   });
 
   return totalClicks > 0 ? { urlId, totalClicks } : null;

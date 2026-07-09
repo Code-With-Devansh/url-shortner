@@ -118,7 +118,7 @@ const validateBreakdown = (by) => {
   return by;
 };
 
-export async function recordClick(urlId, ttlDays, req) {
+export async function recordClick(urlId, userId, ttlDays, req) {
   let referer = "direct";
   try {
     if (req.headers.referer) {
@@ -127,6 +127,7 @@ export async function recordClick(urlId, ttlDays, req) {
   } catch {}
   await clickQueue.add("click", {
     urlId,
+    userId,
     ttlDays,
     ip: safeIp(req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.ip),
     userAgent: req.headers["user-agent"],
