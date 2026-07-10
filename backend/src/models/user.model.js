@@ -75,4 +75,4 @@ userSchema.methods.comparePassword = async function (password) {
   return await argon2.verify(this.password, password + config.passwordPepper);
 };
 
-export const User = mongoose.model("User", userSchema);
+export const User = mongoose.models.User || mongoose.model("User", userSchema);

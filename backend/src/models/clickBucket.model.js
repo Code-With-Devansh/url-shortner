@@ -21,4 +21,4 @@ clickBucketSchema.index({ user: 1, date: -1 });
 
 clickBucketSchema.index({ expires_at: 1 }, { expireAfterSeconds: 0 });
 
-export default mongoose.model('ClickBucket', clickBucketSchema);
+export default mongoose.models.ClickBucket || mongoose.model('ClickBucket', clickBucketSchema);

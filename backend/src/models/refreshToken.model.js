@@ -13,7 +13,7 @@ const refreshTokenSchema = new mongoose.Schema({
     index: true,
   },
   deviceInfo: {
-    deviceId: { type: String, index: true, required:true }, 
+    deviceId: { type: String, index: true, required: true },
     ip: String,
     userAgent: String,
     lastSeen: Date,
@@ -27,13 +27,10 @@ const refreshTokenSchema = new mongoose.Schema({
 refreshTokenSchema.index({ user: 1, expiresAt: 1 });
 refreshTokenSchema.index(
   { user: 1, "deviceInfo.deviceId": 1 },
-  { unique: true }
+  { unique: true },
 );
 function hashToken(token) {
-  return crypto
-    .createHash("sha256")
-    .update(token)
-    .digest("hex");
+  return crypto.createHash("sha256").update(token).digest("hex");
 }
 
 refreshTokenSchema.pre("save", function () {
@@ -46,7 +43,6 @@ refreshTokenSchema.methods.compareToken = function (candidateToken) {
   return hashToken(candidateToken) === this.token;
 };
 
-export const RefreshToken = mongoose.model(
-  "RefreshToken",
-  refreshTokenSchema
-);
+export const RefreshToken =
+  mongoose.models.RefreshToken ||
+  mongoose.model("RefreshToken", refreshTokenSchema);

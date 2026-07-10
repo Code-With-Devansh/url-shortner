@@ -28,4 +28,4 @@ shortUrlSchema.index(
 
 // Filtering by isActive for a user (e.g. show only active links)
 shortUrlSchema.index({ user: 1, isActive: 1, createdAt: -1 });
-export const ShortUrlSchema = mongoose.model("ShortUrl", shortUrlSchema);
+export const ShortUrlSchema = mongoose.models.ShortUrl || mongoose.model("ShortUrl", shortUrlSchema);
