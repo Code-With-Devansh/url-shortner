@@ -10,6 +10,8 @@ export const activeSetKeyForUrl = (urlId) => `analytics:active:${urlId}`;
 
 export const ANALYTICS_DUE_ZSET = "analytics:due";
 
+// Live (unflushed-today) aggregates, maintained incrementally on every click
+// and subtracted at flush time — see decrementLiveCounters below.
 export const liveUserTotalKey = (userId) => `analytics:live:total:${userId}`;
 export const liveLeaderboardKey = (userId) => `analytics:live:${userId}`;
 
@@ -78,13 +80,15 @@ export const mergeUniqueVisitors = async (keys) => {
   const scratchKey = `tmp:hllmerge:${crypto.randomUUID()}`;
 
   try {
-    const [, , count] = await redis
+    const results = await redis
       .multi()
       .pfmerge(scratchKey, ...uniqueKeys)
       .expire(scratchKey, 30)
       .pfcount(scratchKey)
       .exec();
 
+    const [pfcountErr, count] = results[2];
+    if (pfcountErr) throw pfcountErr;
     return count;
   } finally {
     await redis.del(scratchKey).catch(() => {});
