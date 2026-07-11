@@ -132,9 +132,12 @@ Both clients share the same retry strategy: exponential-ish backoff (`min(times 
 | `user_sessions:{userId}` | Set of session keys | Index for bulk session invalidation (logout-everywhere, reuse detection) | 20 days |
 | `session:{hashedSessionToken}` | String (userId) | Short-lived token authenticating the email-verification SSE connection | 10 min |
 | `claim:{hashedClaimToken}` | String (JSON) | Anonymous-session claim record | 10 min |
-| `analytics:{urlId}:{date}` | Hash | Live write buffer for today's click dimensions (`total`, `country:*`, `device:*`, `browser:*`, `os:*`, `referer:*`, `hour:*`) | 48h |
-| `analytics:{urlId}:{date}:visitors` | HyperLogLog | Live unique-visitor estimate for today | 48h |
-| `analytics:active` | Set | Tracks which `analytics:*` hash keys have pending data, so the flush cron doesn't need to `SCAN` the whole keyspace | — |
+| `analytics:{urlId}:{date}:{HH:MM}` | Hash | Live write buffer for one minute's click dimensions (`total`, `country:*`, `device:*`, `browser:*`, `os:*`, `referer:*`, `hour:*`) | 48h |
+| `analytics:{urlId}:{date}:{HH:MM}:visitors` | HyperLogLog | Live unique-visitor estimate for that minute | 48h |
+| `analytics:active:{urlId}` | Set | Tracks which of this URL's minute-bucket keys have pending data | — |
+| `analytics:due` | Sorted set (score = due timestamp, ms) | Every unflushed minute-bucket key, scored by when it becomes eligible for flush — lets the flush cron `ZRANGEBYSCORE` due keys directly instead of scanning | — |
+| `analytics:live:total:{userId}` | String (counter) | This user's running total of unflushed clicks across all owned URLs today — `INCR`'d per click, `DECRBY`'d at flush | — |
+| `analytics:live:{userId}` | Sorted set, member = `urlId`, score = unflushed clicks | Per-URL live click counts for one user — leaderboard source, and the index of "which of this user's URLs are active today" (replaces a Mongo URL-list lookup) | — |
 | `processing:{urlId}:{date}:{HH:MM}` | Hash | A claimed-but-not-yet-flushed minute bucket — the flush job atomically `RENAME`s the `analytics:*` key to this on claim, so a crash mid-flush leaves the data here, not lost | — (deleted on successful flush) |
 | `processing:active` | Sorted set (score = claim timestamp, ms) | Tracks in-flight claims so `analyticsRecoveryWorker.js` can find and re-flush any claim older than the stale threshold | — |
 
@@ -177,8 +180,12 @@ clickWorker.js (BullMQ worker, concurrency 10)
    └─ saveClickToRedis(): one Redis MULTI pipeline —
          HINCRBY analytics:{urlId}:{date}:{HH:MM}  total, country:*, device:*, browser:*, os:*, referer:*, hour:*
          PFADD   analytics:{urlId}:{date}:{HH:MM}:visitors visitorHash
-         SADD    analytics:active                  analytics:{urlId}:{date}:{HH:MM}
-         EXPIRE  (NX, 48h) on both keys
+         SADD    analytics:active:{urlId}           analytics:{urlId}:{date}:{HH:MM}
+         ZADD    analytics:due                      (this bucket, scored by due time)
+         EXPIRE  (NX, 48h) on both hash and HLL keys
+         — if the URL has an owner —
+         INCR    analytics:live:total:{userId}
+         ZINCRBY analytics:live:{userId}             1  urlId
    │
    ▼
 (periodic cron jobs — outside the request path entirely)
@@ -192,8 +199,10 @@ clickWorker.js (BullMQ worker, concurrency 10)
    │     → flushClaimedKey(): reads the claimed hash, PFMERGEs its HLL into the day's durable
    │       archive, then in ONE MongoDB transaction: upserts the ClickBucket doc ($inc) AND
    │       $inc's ShortUrl.clicks — both commit together or neither does
-   │     → on success: deletes the processing:* key, removes it from processing:active,
-   │       invalidates analytics caches for that URL/owner
+   │     → on success: subtracts the flushed click count from analytics:live:total:{userId}
+   │       and analytics:live:{userId} (decrementLiveCounters — see below), deletes the
+   │       processing:* key, removes it from processing:active, invalidates analytics
+   │       caches for that URL/owner
    │     → on failure (thrown from withTransaction): the processing:* key and its ZSET
    │       entry are deliberately left in place — nothing is lost, it's just still "claimed"
    │
@@ -209,7 +218,7 @@ Both cron jobs are standalone scripts (run via `npm run cron:*`, scheduled by `d
 
 **Why `ShortUrl.clicks` can no longer disagree with `ClickBucket`:** both are written inside the same `mongoose` session/transaction in `flushClaimedKey`, from the same aggregated numbers, on the same flush. There is exactly one write path per click event now, not two independently-scheduled ones — see the historical note in [Known Gaps](#known-gaps--accepted-risk).
 
-**Read side:** analytics queries (`getUrlAnalyticsSummary`, etc.) merge **flushed MongoDB buckets** for past days with a **live read straight from whatever Redis minute buckets are still unflushed** for today, so "today so far" is never more than ~1–2 minutes stale. This merge happens in `mergeBuckets()`, which is also where the multi-day `uniqueVisitors` sum (and its upper-bound caveat above) originates.
+**Read side:** per-URL analytics queries (`getUrlAnalyticsSummary`, etc.) merge **flushed MongoDB buckets** for past days with a **live read straight from that URL's own unflushed Redis minute buckets** for today, so "today so far" is never more than ~1–2 minutes stale. Overall (account-wide) queries do the same merge, but source today's live numbers from **per-user Redis aggregates** (`analytics:live:total:{userId}`, `analytics:live:{userId}`) rather than by first resolving the user's full URL list from Mongo and fanning out over it — the fan-out that remains (for unique-visitor HLL keys and for breakdown) is bounded by how many URLs got a click *today*, not by how many URLs the account has ever created. See [`ANALYTICS.md`](./ANALYTICS.md#per-user-live-aggregates) for the full design. This merge happens in `mergeBuckets()`, which is also where the multi-day `uniqueVisitors` sum (and its upper-bound caveat above) originates.
 
 ## Cursor-Based Pagination
 
@@ -234,4 +243,5 @@ Two search paths exist, selected via `USE_ATLAS_SEARCH`:
 - ~~**`ShortUrl.clicks` and the `ClickBucket` analytics pipeline are two independent write paths**~~ — **Fixed.** `flushClicksWorker.js` / the separate `clicks` Redis hash no longer exist. `flushClaimedKey` now writes both `ClickBucket` and `ShortUrl.clicks` inside a single MongoDB transaction on the same flush, so they can't disagree at rest anymore (they can still be momentarily behind "now," same as any flush-based system, but not behind *each other*).
 - ~~**No transactional guarantee between the Redis write buffer and MongoDB.**~~ — **Fixed.** Minute buckets are now claimed via an atomic Redis `RENAME` (`analytics:*` → `processing:*`, see the Lua script backing `claimAnalyticsKey`) before being flushed, so data exists under exactly one key at every point in time — never silently duplicated or dropped between claim and commit. If a flush crashes mid-transaction, the `processing:*` key and its `processing:active` ZSET entry are left in place rather than cleaned up, and `analyticsRecoveryWorker.js` (every 5 min, see [`DEPLOYMENT.md`](./DEPLOYMENT.md#scheduled-jobs)) sweeps for claims older than 5 minutes and re-flushes them. This is the replay mechanism that was previously missing.
 - **The legacy `$text` search index is present but only substring-capable via Atlas Search**, not via `$text` itself — worth knowing if `USE_ATLAS_SEARCH` is ever run in an environment without an Atlas Search index configured.
+- ~~**Overall analytics endpoints resolved a user's full URL list from MongoDB on every request**~~ — **Fixed.** `getUserUrlIds` (a `ShortUrl.find({ user: userId }, "_id")` query, followed by a Redis fan-out over every returned id) has been removed. Overall summary/timeseries/leaderboard now read per-user live Redis aggregates (`analytics:live:total:{userId}`, `analytics:live:{userId}`) maintained incrementally on every click instead; the one remaining fan-out (breakdown, and HLL merging for summary/timeseries) is bounded by how many URLs got a click *today*, sourced from the live ZSET's members, not by the account's total URL count. See [`ANALYTICS.md`](./ANALYTICS.md#per-user-live-aggregates).
 - **No documented backup/restore or point-in-time-recovery process** for MongoDB Atlas in this repo — if Atlas's built-in continuous backups are relied on, that should be stated explicitly here rather than assumed.

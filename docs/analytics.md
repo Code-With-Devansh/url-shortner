@@ -8,7 +8,9 @@ This document describes Snip's click-analytics system end to end: the API surfac
 - [API Endpoints](#api-endpoints)
 - [Query Parameters](#query-parameters)
 - [Write Pipeline](#write-pipeline)
+- [Minute-Bucketed Buffering](#minute-bucketed-buffering)
 - [Read Path](#read-path)
+- [Per-User Live Aggregates](#per-user-live-aggregates)
 - [Caching & Invalidation](#caching--invalidation)
 - [Unique Visitor Counting](#unique-visitor-counting)
 - [The Separate `ShortUrl.clicks` Counter](#the-separate-shorturlclicks-counter)
@@ -144,12 +146,35 @@ Each per-URL/overall query follows the same shape:
 
 1. Validate `range` (and `by`, for breakdowns).
 2. Check the analytics-specific cache (see below) — return immediately on a hit.
-3. On a miss: query `ClickBucket` documents for the date range (`getBucketsByUrl` / `getBucketsByUrls`) — this **includes today**, since today's document is now updated incrementally by every minute's flush rather than written once at the end of the day — merge them (`mergeBuckets`), and additionally read whatever's still sitting unflushed in Redis for today (`getLiveBucketForToday` / `getLiveBucketForUrlsToday`) and merge that in on top.
+3. On a miss: query `ClickBucket` documents for the date range (`getBucketsByUrl` / `getBucketsByUser`) — this **includes today**, since today's document is now updated incrementally by every minute's flush rather than written once at the end of the day — merge them (`mergeBuckets`), and additionally read whatever's still sitting unflushed in Redis for today and merge that in on top.
 4. Write the result back to cache (fire-and-forget) and return it.
 
 `mergeBuckets` sums `total` and dimension counts across all buckets in range in a single pass. `uniqueVisitors` is **not** summed this way — see [Unique Visitor Counting](#unique-visitor-counting).
 
-At any moment, "today's" true total is exactly: *(everything already flushed into today's `ClickBucket` doc)* + *(whatever's still sitting in the not-yet-due minute bucket(s) in Redis)* — the two are disjoint (a minute's data lives in exactly one place at a time: Redis before it's due, Mongo after), so summing them is safe and doesn't double-count. This applies uniformly to `getUrlAnalyticsSummary`, `getOverallAnalyticsSummary`, and `getOverallAnalyticsTimeseries`, all of which now read and merge the live remainder. `getUrlAnalyticsTimeseries` and both breakdown endpoints intentionally stay Mongo-only (no live-Redis merge) — with a 1-minute flush cadence their staleness is already well within their own cache TTLs (300s), so the added complexity of merging live data into a full breakdown/timeseries response wasn't judged worth it. If that trade-off ever needs revisiting, `getLiveBucketForToday`/`getLiveBucketForUrlsToday` already expose the full per-dimension breakdown of the live remainder, not just a total — only the call sites would need to change.
+**Per-URL reads** (`getUrlAnalyticsSummary`) still get "today's remainder" via `getLiveBucketForToday(urlId)`, which reads that URL's own active minute-bucket keys directly (`getActiveBucketKeysForDate`) — this was always O(that URL's activity today), never O(account size), so it didn't need to change.
+
+**Overall (account-wide) reads no longer resolve a user's URL list from MongoDB at all.** Previously, `getOverallAnalyticsSummary` / `getOverallAnalyticsTimeseries` / `getOverallAnalyticsBreakdown` / `getOverallAnalyticsLeaderboard` all called a `getUserUrlIds(userId)` DAO function (`ShortUrl.find({ user: userId }, "_id")`) up front, then used that id list to fan out over per-URL Redis structures — a query and a fan-out that both scaled with the user's *total* URL count, not their activity. An account with hundreds of thousands of URLs paid that cost on every overall-analytics request regardless of how many of those URLs had ever been clicked. That function has been removed; each overall endpoint now gets what it needs directly from **per-user live Redis structures**, maintained incrementally by every click and decremented at flush time — see [Per-User Live Aggregates](#per-user-live-aggregates) below.
+
+## Per-User Live Aggregates
+
+In addition to the per-minute per-URL buckets, every click belonging to an authenticated user's URL (anonymous/unowned URLs skip this — `user` is optional on `ShortUrl`) also updates two per-user Redis structures, in the same `MULTI` pipeline as the minute bucket:
+
+| Key | Type | Purpose |
+|---|---|---|
+| `analytics:live:total:{userId}` | String (counter) | Running count of this user's unflushed clicks across all URLs today. `INCR`'d on every click, `DECRBY`'d at flush. |
+| `analytics:live:{userId}` | Sorted set, member = `urlId`, score = unflushed clicks | Per-URL live click counts for this user — powers the leaderboard, and doubles as an index of "which URLs are active today." `ZINCRBY`'d on every click, `ZINCRBY`'d negatively at flush; a member whose score reaches 0 is `ZREM`'d. |
+
+At flush time (`decrementLiveCounters` in `src/cache/clickBucket.redis.js`, called from `flushClaimedKey` right after the Mongo transaction commits), the exact number of clicks just persisted is subtracted from both structures for that URL's owner. This keeps both structures containing *only* unflushed clicks at all times — a URL with no activity today (or whose today's activity has all been flushed) simply isn't a member of the ZSET, and the total counter reflects only what Mongo doesn't have yet.
+
+This subtraction is plain Redis commands, not a Lua script — safe because by the time `flushClaimedKey` runs, the bucket in question was already claimed exclusively via the atomic `RENAME` (`analyticsClaim.lua`), so no other writer can still be incrementing the numbers being subtracted. There's nothing left to race against.
+
+**What each overall endpoint does with this:**
+
+- **`getOverallAnalyticsSummary` / `getOverallAnalyticsTimeseries`** — today's live *total* is a single `GET analytics:live:total:{userId}`, O(1) regardless of account size. Unique-visitor merging still needs actual HLL keys (a scalar counter can't be `PFMERGE`d), so those are looked up by reading the live ZSET's *members* (`ZRANGE analytics:live:{userId} 0 -1`) — the set of URLs with unflushed clicks today — and deriving each one's active minute-bucket keys from there. This fan-out is bounded by **today's active URL count**, not total URLs owned.
+- **`getOverallAnalyticsLeaderboard`** — reads `ZREVRANGE analytics:live:{userId} 0 {limit-1} WITHSCORES` directly for the live side of the merge, replacing what used to be a per-URL fan-out over the full owned-URL list. Merged with Mongo's own top-K and re-sorted, both sides bounded by the requested (capped) `limit` — so the merge itself is bounded by roughly `2 × limit` candidates regardless of account size.
+- **`getOverallAnalyticsBreakdown`** — the one overall endpoint that still does a genuine per-URL Redis fan-out, because per-dimension counts (country/browser/device/OS/referrer) aren't tracked in a live per-user aggregate — only the scalar total and the per-URL click count are. Adding live per-dimension hashes was considered and deliberately rejected (see [`Design-decisions.md`](./Design-decisions.md)): it would add several extra Redis writes to every single click to speed up an endpoint that's hit far less often than summary/timeseries/leaderboard. So breakdown still calls `getActiveBucketKeysForUrls`, but the candidate URL list now comes from the live ZSET's members instead of Mongo — bounded by today's active URLs, same as the summary/timeseries HLL lookup above, not by the account's total URL count.
+
+
 
 ## Caching & Invalidation
 
@@ -187,9 +212,8 @@ This applies to `getUrlAnalyticsSummary` (across days, one URL), `getOverallAnal
 
 ## Known Gaps / Accepted Risk
 
-- **Staleness is now bounded at roughly 1–2 minutes** for `getUrlAnalyticsSummary`, `getOverallAnalyticsSummary`, and `getOverallAnalyticsTimeseries` — the per-minute flush cadence plus the 60s due-check grace period (see [Minute-Bucketed Buffering](#minute-bucketed-buffering)) together set the upper bound. `getUrlAnalyticsTimeseries` and both breakdown endpoints don't merge live data and lag by up to one flush interval (~1 minute) plus their own cache TTL (300s) — acceptable for those views, but worth knowing if that assumption ever changes.
-- **The leaderboard (`getOverallAnalyticsLeaderboard`) and "top URL" in the overall summary are Mongo-only** — they rank by `ClickBucket.total`, which doesn't include today's still-unflushed remainder. A URL that just went viral in the last minute won't show its very latest clicks in its rank until the next flush, even though the overall summary's raw totals already account for it.
-- ~~**No durability guarantee between the Redis write buffer and MongoDB.**~~ — **Fixed.** Minute buckets are now claimed with an atomic `RENAME` (`analytics:{...}` → `processing:{...}`) before being flushed, so a bucket's data exists under exactly one Redis key at all times rather than being read-then-deleted with no fallback. If `flushClaimedKey`'s MongoDB transaction throws (e.g. the process crashes mid-flush), the `processing:*` key and its `processing:active` ZSET entry are deliberately left behind instead of cleaned up, and a new job — `analyticsRecoveryWorker.js`, running every 5 minutes offset by 2 — sweeps `processing:active` for any claim older than a 5-minute stale threshold and re-runs `flushClaimedKey` on it. That's the replay mechanism that was previously missing. Remaining exposure is narrower now: only clicks sitting in an `analytics:active` bucket that hasn't been claimed yet are still dependent on Redis's own persistence (AOF/RDB) surviving a crash — worth confirming `appendfsync` is actually configured as intended in production, since that's the one link in the chain this fix doesn't cover.
-- ~~**`ShortUrl.clicks` and `ClickBucket` totals can diverge**~~ — **Fixed**, see [The Separate `ShortUrl.clicks` Counter](#the-separate-shorturlclicks-counter) above — both are now written in one transaction per flush, from the same numbers.
+- **"Top URL" in the overall summary is still Mongo-only** (`getCachedTopUrls`) — it ranks by `ClickBucket.total`, which doesn't include today's still-unflushed remainder, so a URL that just went viral in the last minute won't show up as `topUrl` until the next flush. **The leaderboard no longer has this gap** — `getOverallAnalyticsLeaderboard` merges Mongo's historical top-K with a live read of `analytics:live:{userId}` (see [Per-User Live Aggregates](#per-user-live-aggregates)), so today's still-unflushed clicks are reflected in the ranking immediately, not just after the next flush.
+
 - **Visitor identity (`sha256(ip:userAgent)`) is a coarse proxy**, not a true unique-user identifier — shared IPs (NAT, corporate networks) undercount distinct people, and the same person across devices/browsers overcounts them. This is a deliberate privacy/simplicity trade-off (no cookies, no fingerprinting), not a bug, but worth knowing when interpreting the numbers.
 - **`by` breakdown dimensions are fixed to the six enumerated in `ALLOWED_BREAKDOWNS`** — adding a new dimension (e.g. a `city` field once geolocation is real) requires updating the Redis field-parsing logic in both `saveClickToRedis`/`flushAnalyticsKey`/`aggregateBucketKeys` and the `ClickBucket` schema, not just the allowlist.
+- **Per-user live aggregates add 2 extra Redis writes to every click** (on top of the existing minute-bucket write) for URLs that have an owner — an `INCR` and a `ZINCRBY`, both in the same pipeline as the minute-bucket update, so no extra round-trip, just extra commands per pipeline. Live per-dimension breakdown hashes (country/browser/device/OS/referrer) were deliberately *not* added on top of this, specifically to keep this number small — see [Per-User Live Aggregates](#per-user-live-aggregates) and [`Design-decisions.md`](./Design-decisions.md). If click-ingestion throughput ever becomes the bottleneck rather than analytics-read latency, this is the tax to revisit first.

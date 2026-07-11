@@ -104,7 +104,7 @@ A single Redis Stack instance does multiple jobs at once, each with its own key 
 - **Session cache** — `refresh:<userId>:<deviceId>`, a fast-path mirror of the MongoDB `RefreshToken` collection.
 - **Bloom filter** — `urls:bloom`, the redirect existence check.
 - **Rate limit counters** — `ratelimit:*` (token bucket) and the `rate-limit-redis` store used by `express-rate-limit`.
-- **Click write-buffer** — `analytics:<urlId>:<date>:<HH:MM>` per-minute hashes + `:visitors` HLLs, plus an `analytics:active` set (and, once claimed for flushing, a `processing:*` key + `processing:active` set) tracking which buckets currently have unflushed data.
+- **Click write-buffer** — `analytics:{urlId}:{date}:{HH:MM}` per-minute hashes + `:visitors` HLLs, plus an `analytics:active:{urlId}` set (and, once claimed for flushing, a `processing:*` key + `processing:active` set) tracking which buckets currently have unflushed data. Per-user live aggregates (`analytics:live:total:{userId}`, `analytics:live:{userId}` sorted set) are maintained alongside these on every click, so account-wide analytics reads don't need to resolve a user's URL list from MongoDB first — see [`analytics.md`](./ANALYTICS.md#per-user-live-aggregates).
 - **SSE pub/sub channel** — `sse:notify`, used to fan out email-verification events across replicas (see below).
 
 Redis Stack specifically (not vanilla Redis) is required here because of the Bloom filter (`BF.*`) and HyperLogLog (`PF*`) commands used on the redirect hot path and in analytics.
