@@ -2,7 +2,6 @@ import { clickQueue } from "../queues/queues.js";
 import {
   getBucketsByUrl,
   getBucketsByUser,
-  getUserUrlIds,
   getTopUrlsForUser,
 } from "../dao/clickBucket.dao.js";
 
@@ -14,7 +13,16 @@ import { findShortUrlByIdForUser, getShortUrlsMetaByIds } from "../dao/shortUrl.
 import { NotFoundError, ValidationError } from "../utils/appError.js";
 import { analyticsCacheKey } from "../utils/cacheKeys.js";
 import { withCache } from "../utils/withCache.js";
-import {getActiveBucketKeysForDate, getActiveBucketKeysForUrls, getLiveTotalsByUrl, hllArchiveKey, hllKeyForBucket, mergeUniqueVisitors} from '../cache/clickBucket.redis.js'
+import {
+  getActiveBucketKeysForDate,
+  getActiveBucketKeysForUrls,
+  getLiveUserTotal,
+  getLiveActiveUrlIds,
+  getLiveLeaderboardTop,
+  hllArchiveKey,
+  hllKeyForBucket,
+  mergeUniqueVisitors,
+} from '../cache/clickBucket.redis.js'
 
 const CACHE_TTL = {
   historical: 60, // Mongo only changes once per flush cycle (every minute)
@@ -191,13 +199,17 @@ async function getLiveBucketForToday(urlId) {
   return { date, ...live };
 }
 
-async function getLiveBucketForUrlsToday(urlIds) {
+async function getLiveBucketForUrlsToday(userId) {
   const date = new Date().toISOString().split("T")[0];
-  const keys = await getActiveBucketKeysForUrls(urlIds, date);
-  if (keys.length === 0) return { date, total: 0, hllKeys: [] };
+  const [total, activeUrlIds] = await Promise.all([
+    getLiveUserTotal(userId),
+    getLiveActiveUrlIds(userId),
+  ]);
+  if (total === 0 && activeUrlIds.length === 0) return { date, total: 0, hllKeys: [] };
 
-  const live = await aggregateBucketKeys(keys);
-  return { date, ...live };
+  const keys = await getActiveBucketKeysForUrls(activeUrlIds, date);
+  const hllKeys = keys.map((key) => hllKeyForBucket(key));
+  return { date, total, hllKeys };
 }
 
 
@@ -275,16 +287,11 @@ export const getUrlAnalyticsBreakdown = async (urlId, userId, range, by) => {
 // overall
 export const getOverallAnalyticsSummary = async (userId, range) => {
   const rangeKey = validateRange(range);
-  const urlIds = await getUserUrlIds(userId);
-  if (urlIds.length === 0) {
-    return { total: 0, uniqueVisitors: 0, range: rangeKey, topUrl: null };
-  }
-
   const since = sinceDate(rangeKey);
   const [mongoBuckets, topUrls, liveToday] = await Promise.all([
     getCachedBucketsByUser(userId, since, rangeKey),
     getCachedTopUrls(userId, since, rangeKey, 1),
-    getLiveBucketForUrlsToday(urlIds),
+    getLiveBucketForUrlsToday(userId),
   ]);
   const { summary } = mergeBuckets(mongoBuckets);
 
@@ -304,13 +311,10 @@ export const getOverallAnalyticsSummary = async (userId, range) => {
 
 export const getOverallAnalyticsTimeseries = async (userId, range) => {
   const rangeKey = validateRange(range);
-  const urlIds = await getUserUrlIds(userId); // Redis live-lookup only, see above
-  if (urlIds.length === 0) return [];
-
   const since = sinceDate(rangeKey);
   const [mongoBuckets, liveToday] = await Promise.all([
     getCachedBucketsByUser(userId, since, rangeKey),
-    getLiveBucketForUrlsToday(urlIds),
+    getLiveBucketForUrlsToday(userId),
   ]);
 
   const byDate = new Map();
@@ -343,17 +347,31 @@ export const getOverallAnalyticsTimeseries = async (userId, range) => {
 };
 
 
+// Breakdown needs actual per-dimension counts (country/browser/device/...),
+// which the live counters don't carry — those are scalar totals only, by
+// design (see discussion: keeping live writes cheap on the hot click path).
+// So this endpoint still fans out over per-minute bucket hashes, but the
+// candidate URL list comes from the live leaderboard ZSET's members —
+// bounded by how many URLs got a click *today*, not by the user's total
+// URL count. This is the one endpoint where that fan-out is allowed to
+// exist; it's low-frequency relative to summary/timeseries/leaderboard.
 export const getOverallAnalyticsBreakdown = async (userId, range, by) => {
   const rangeKey = validateRange(range);
   const dimension = validateBreakdown(by);
-  const urlIds = await getUserUrlIds(userId); // Redis live-lookup only, see above
-  if (urlIds.length === 0) return [];
-
   const since = sinceDate(rangeKey);
-  const [mongoBuckets, liveToday] = await Promise.all([
+  const date = new Date().toISOString().split("T")[0];
+
+  const [mongoBuckets, activeUrlIds] = await Promise.all([
     getCachedBucketsByUser(userId, since, rangeKey),
-    getLiveBucketForUrlsToday(urlIds),
+    getLiveActiveUrlIds(userId),
   ]);
+
+  let liveToday = { total: 0, hllKeys: [] };
+  if (activeUrlIds.length > 0) {
+    const keys = await getActiveBucketKeysForUrls(activeUrlIds, date);
+    liveToday = { date, ...(await aggregateBucketKeys(keys)) };
+  }
+
   const allBuckets =
     liveToday.total > 0 || liveToday.hllKeys.length > 0
       ? [...mongoBuckets, liveToday]
@@ -365,16 +383,12 @@ export const getOverallAnalyticsBreakdown = async (userId, range, by) => {
 export const getOverallAnalyticsLeaderboard = async (userId, range, limit = 10) => {
   const rangeKey = validateRange(range);
   const cappedLimit = Math.min(limit, 50);
-  const urlIds = await getUserUrlIds(userId);
-  if (urlIds.length === 0) return [];
-
   const since = sinceDate(rangeKey);
-  const today = new Date().toISOString().split("T")[0];
   const key = analyticsCacheKey("user", userId, rangeKey, `leaderboard-base:${cappedLimit}`);
 
   const [mongoTop, liveTotals] = await Promise.all([
     withCache(key, CACHE_TTL.historical, () => getTopUrlsForUser(userId, since, cappedLimit)),
-    getLiveTotalsByUrl(urlIds, today), // uncached, always fresh
+    getLiveLeaderboardTop(userId, cappedLimit), // uncached, always fresh
   ]);
 
   const byUrlId = new Map(

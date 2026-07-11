@@ -10,6 +10,9 @@ export const activeSetKeyForUrl = (urlId) => `analytics:active:${urlId}`;
 
 export const ANALYTICS_DUE_ZSET = "analytics:due";
 
+export const liveUserTotalKey = (userId) => `analytics:live:total:${userId}`;
+export const liveLeaderboardKey = (userId) => `analytics:live:${userId}`;
+
 export const minuteOf = (timestampMs = Date.now()) => {
   const d = new Date(timestampMs);
   const hh = d.getUTCHours().toString().padStart(2, "0");
@@ -120,25 +123,45 @@ export const saveClickToRedis = async ({
   pipeline.sadd(activeSetKeyForUrl(urlId), key);
   pipeline.zadd(ANALYTICS_DUE_ZSET, bucketDueAt(date, minute), key);
 
+  if (userId) {
+    pipeline.incr(liveUserTotalKey(userId));
+    pipeline.zincrby(liveLeaderboardKey(userId), 1, urlId.toString());
+  }
+
   await pipeline.exec();
 };
 
-export const getLiveTotalsByUrl = async (urlIds, date) => {
-  const keys = await getActiveBucketKeysForUrls(urlIds, date);
-  if (keys.length === 0) return {};
+export const getLiveUserTotal = async (userId) => {
+  const value = await redis.get(liveUserTotalKey(userId));
+  return Number(value) || 0;
+};
+export const getLiveActiveUrlIds = async (userId) => {
+  return redis.zrange(liveLeaderboardKey(userId), 0, -1);
+};
 
-  const pipeline = redis.pipeline();
-  keys.forEach((key) => pipeline.hget(key, "total"));
+export const getLiveLeaderboardTop = async (userId, limit) => {
+  const raw = await redis.zrevrange(liveLeaderboardKey(userId), 0, limit - 1, "WITHSCORES");
+  const totals = {};
+  for (let i = 0; i < raw.length; i += 2) {
+    totals[raw[i]] = Number(raw[i + 1]) || 0;
+  }
+  return totals;
+};
+
+// Called at flush time to subtract exactly what was just persisted to Mongo.
+// Safe to run as plain (non-Lua) commands: by this point the bucket has
+// already been claimed/renamed exclusively by analyticsClaim.lua, so no
+// other writer can still be incrementing it — there's nothing left to race.
+export const decrementLiveCounters = async ({ urlId, userId, clicks }) => {
+  if (!userId || !clicks) return;
+  const key = liveLeaderboardKey(userId);
+  const pipeline = redis.multi();
+  pipeline.decrby(liveUserTotalKey(userId), clicks);
+  pipeline.zincrby(key, -clicks, urlId.toString());
   const results = await pipeline.exec();
 
-  const totals = {};
-  keys.forEach((key, i) => {
-    // key shape: analytics:<urlId>:<date>:<HH:MM>
-    const urlId = key.split(":")[1];
-    const [err, value] = results[i];
-    const count = err ? 0 : Number(value) || 0;
-    totals[urlId] = (totals[urlId] || 0) + count;
-  });
-
-  return totals;
+  const newScore = Number(results?.[1]?.[1]);
+  if (!Number.isNaN(newScore) && newScore <= 0) {
+    await redis.zrem(key, urlId.toString());
+  }
 };

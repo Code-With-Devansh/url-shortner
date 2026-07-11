@@ -95,7 +95,6 @@ export const redirectFromShortUrl = tryCatch(async (req, res, next) => {
     // ourselves rather than make a visitor wait on it.
     { lockWaitMs: 150, negativeTtlSeconds: NOT_FOUND_CACHE_TTL },
   );
-
   if (!shortUrlData) {
     throw new NotFoundError("Short URL not found", ErrorCodes.URL_NOT_FOUND);
   }

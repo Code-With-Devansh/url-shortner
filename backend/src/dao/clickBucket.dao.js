@@ -1,4 +1,3 @@
-import { ShortUrlSchema } from "../models/shortUrl.model.js";
 import ClickBucket from '../models/clickBucket.model.js';
 
 export const saveClickBucket = async ({
@@ -60,15 +59,6 @@ export const getBucketsByUser = async (userId, since) => {
   )
     .sort({ date: 1 })
     .lean();
-};
-
-// Just the ids — still needed for the Redis-side "live today" lookups
-// (getActiveBucketKeysForUrls / getLiveTotalsByUrl), since those buckets are
-// keyed by url_id, not by user. NOT used for Mongo aggregation anymore —
-// see getTopUrlsForUser / getAllUrlTotalsForUser below.
-export const getUserUrlIds = async (userId) => {
-  const urls = await ShortUrlSchema.find({ user: userId }, "_id").lean();
-  return urls.map((u) => u._id);
 };
 
 // Top N URLs by total clicks across a date range, joined with URL metadata.

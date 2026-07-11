@@ -7,6 +7,7 @@ import { invalidateAnalyticsCache } from "../../utils/cacheKeys.js";
 import {
   archiveMinuteHll,
   hllArchiveKey,
+  decrementLiveCounters,
 } from "../../cache/clickBucket.redis.js";
 
 const RETENTION_DAYS = 90;
@@ -89,6 +90,14 @@ export async function flushClaimedKey(processingKey) {
   }
   // if withTransaction threw, we fall out of this function via the throw below —
   // processing key and ZSET entry are deliberately left in place for retry
+
+  // Subtract exactly what was just persisted from the live per-user total
+  // and leaderboard ZSET. Safe to run as plain commands here (not inside
+  // the Mongo transaction, not via Lua) — this bucket was already claimed
+  // exclusively by analyticsClaim.lua before flush started, so no other
+  // writer can still be touching it.
+  await decrementLiveCounters({ urlId, userId, clicks: totalClicks });
+
   await archiveMinuteHll(urlId, date, minute, RETENTION_SECONDS, true);
   await redis.del(processingKey);
   await redis.zrem("processing:active", processingKey);
