@@ -12,7 +12,7 @@ import { safeIp } from "../utils/safeIp.js";
 import { findShortUrlByIdForUser, getShortUrlsMetaByIds } from "../dao/shortUrl.js";
 import { NotFoundError, ValidationError } from "../utils/appError.js";
 import { analyticsCacheKey } from "../utils/cacheKeys.js";
-import { withCache } from "../utils/withCache.js";
+import { withIndexedCache } from "../utils/withCache.js";
 import {
   getActiveBucketKeysForDate,
   getActiveBucketKeysForUrls,
@@ -38,17 +38,17 @@ const ALLOWED_BREAKDOWNS = [
 ];
 const getCachedBucketsByUrl = (urlId, since, rangeKey) => {
   const key = analyticsCacheKey("url", urlId, rangeKey, "mongo-buckets");
-  return withCache(key, CACHE_TTL.historical, () => getBucketsByUrl(urlId, since));
+  return withIndexedCache("url", urlId, key, CACHE_TTL.historical, () => getBucketsByUrl(urlId, since));
 };
 
 const getCachedBucketsByUser = (userId, since, rangeKey) => {
   const key = analyticsCacheKey("user", userId, rangeKey, "mongo-buckets");
-  return withCache(key, CACHE_TTL.historical, () => getBucketsByUser(userId, since));
+  return withIndexedCache("user", userId, key, CACHE_TTL.historical, () => getBucketsByUser(userId, since));
 };
 
 const getCachedTopUrls = (userId, since, rangeKey, limit) => {
   const key = analyticsCacheKey("user", userId, rangeKey, `top-urls:${limit}`);
-  return withCache(key, CACHE_TTL.historical, () => getTopUrlsForUser(userId, since, limit));
+  return withIndexedCache("user", userId, key, CACHE_TTL.historical, () => getTopUrlsForUser(userId, since, limit));
 };
 
 const toEntries = (mapOrObj) => {
@@ -388,7 +388,7 @@ export const getOverallAnalyticsLeaderboard = async (userId, range, limit = 10) 
   const key = analyticsCacheKey("user", userId, rangeKey, `leaderboard-base:${mongoLimit}`);
 
   const [mongoTop, liveTotals] = await Promise.all([
-    withCache(key, CACHE_TTL.historical, () => getTopUrlsForUser(userId, since, mongoLimit)),
+    withIndexedCache("user", userId, key, CACHE_TTL.historical, () => getTopUrlsForUser(userId, since, mongoLimit)),
     getLiveLeaderboardTop(userId, mongoLimit), // uncached, always fresh
   ]);
 

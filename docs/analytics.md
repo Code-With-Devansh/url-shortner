@@ -53,7 +53,7 @@ All responses are wrapped identically: `{ success: true, data: <above> }` (`toAn
 |---|---|---|---|---|
 | `range` | all endpoints | `7d`, `30d`, `90d` | `30d` | Anything else → `400 ANALYTICS_INVALID_RANGE`. |
 | `by` | breakdown endpoints | `countries`, `devices`, `browsers`, `os`, `referers`, `hours` | — (required) | Anything else → `400 ANALYTICS_INVALID_BREAKDOWN`. |
-| `limit` | leaderboard | integer | `10` | Capped at `50` server-side (`Math.min(limit, 50)`) regardless of what's requested, so a client can't force an oversized query. |
+| `limit` | leaderboard | integer | `10` | Capped at `50` server-side  regardless of what's requested, so a client can't force an oversized query. |
 
 ## Write Pipeline
 
@@ -128,8 +128,6 @@ clickWorker.js  (BullMQ worker, concurrency 10, dedicated ioredis connection)
 
 **Visitor identification** is a hash of `ip:userAgent`, not a cookie or fingerprint — it's a coarse, privacy-conscious proxy for "distinct visitor" (two different people behind the same IP/UA combination collapse into one; the same person on two devices counts as two). This is fed into a HyperLogLog, so exact identity was never the goal — a reasonable unique estimate is.
 
-**Geolocation is currently a stub.** `processClick` hardcodes `country = "IN"` for every click. The `countries` breakdown dimension is wired up end-to-end and will populate correctly once real geolocation is re-enabled, but until then every click attributes to the same country.
-
 ## Minute-Bucketed Buffering
 
 The Redis write buffer is bucketed **per minute** (`analytics:{urlId}:{date}:{HH:MM}`), not one mutable key per day. This is what makes flushing every minute (the current `docker/crontab` schedule — see [`DEPLOYMENT.md`](./DEPLOYMENT.md#scheduled-jobs)) safe:
@@ -182,16 +180,16 @@ Analytics query results are cached with `withCache` (plain read-through, not the
 
 | Query type | TTL |
 |---|---|
-| Summary | 30s |
-| Timeseries | 300s |
-| Breakdown | 300s |
-| Leaderboard | 300s |
+| Summary | 60s |
+| Timeseries | 60s |
+| Breakdown | 60s |
+| Leaderboard | 60s |
 
 Cache keys are scoped per query shape: `cache:analytics:url:{urlId}:{range}:{summary\|timeseries\|breakdown:{dim}}` and `cache:analytics:user:{userId}:{range}:{summary\|timeseries\|breakdown:{dim}\|leaderboard:{limit}}`.
 
 **Invalidation** happens once per flushed bucket, not on every cache read: `invalidateAnalyticsCache(urlId)` runs at the end of each `flushAnalyticsKey` call and `SCAN`s + deletes every `cache:analytics:url:{urlId}:*` key, plus (if the URL has an owner) every `cache:analytics:overall:{userId}:*` key for that owner. It short-circuits (does nothing) if there's no existing 30d summary cache entry for that URL, as a cheap way to skip invalidation work for URLs nobody's actively viewing analytics for.
 
-Because summary TTLs are short (30s) and today's numbers are read live from Redis on the per-URL path regardless, staleness is bounded even between flushes.
+Because summary TTLs are short (60s) and today's numbers are read live from Redis on the per-URL path regardless, staleness is bounded even between flushes.
 
 ## Unique Visitor Counting
 
@@ -213,5 +211,3 @@ This applies to `getUrlAnalyticsSummary` (across days, one URL), `getOverallAnal
 ## Known Gaps / Accepted Risk
 
 - **Visitor identity (`sha256(ip:userAgent)`) is a coarse proxy**, not a true unique-user identifier — shared IPs (NAT, corporate networks) undercount distinct people, and the same person across devices/browsers overcounts them. This is a deliberate privacy/simplicity trade-off (no cookies, no fingerprinting), not a bug, but worth knowing when interpreting the numbers.
-- **`by` breakdown dimensions are fixed to the six enumerated in `ALLOWED_BREAKDOWNS`** — adding a new dimension (e.g. a `city` field once geolocation is real) requires updating the Redis field-parsing logic in both `saveClickToRedis`/`flushAnalyticsKey`/`aggregateBucketKeys` and the `ClickBucket` schema, not just the allowlist.
-- **Per-user live aggregates add 2 extra Redis writes to every click** (on top of the existing minute-bucket write) for URLs that have an owner — an `INCR` and a `ZINCRBY`, both in the same pipeline as the minute-bucket update, so no extra round-trip, just extra commands per pipeline. Live per-dimension breakdown hashes (country/browser/device/OS/referrer) were deliberately *not* added on top of this, specifically to keep this number small — see [Per-User Live Aggregates](#per-user-live-aggregates) and [`Design-decisions.md`](./DESIGN-DECISIONS.md). If click-ingestion throughput ever becomes the bottleneck rather than analytics-read latency, this is the tax to revisit first.

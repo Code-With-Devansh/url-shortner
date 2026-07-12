@@ -104,7 +104,7 @@ export async function flushClaimedKey(processingKey) {
   // The Mongo write above already committed successfully at this point —
   // a failure here just means the cache stays stale for up to its 60s TTL,
   // not that the flush itself should be treated as failed/retried.
-  await invalidateAnalyticsCache(urlId).catch((err) => {
+  await invalidateAnalyticsCache(urlId, userId).catch((err) => {
     logger.warn(
       { err, urlId },
       "analytics cache invalidation failed after successful flush",

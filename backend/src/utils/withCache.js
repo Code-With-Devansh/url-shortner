@@ -1,4 +1,5 @@
 import redis from "../config/redis.config.js";
+import { setAnalyticsCache } from "./cacheKeys.js";
 
 const DEFAULT_TTL = 120; 
 
@@ -17,6 +18,33 @@ export async function withCache(key, ttlSeconds = DEFAULT_TTL, fn) {
   // Fire-and-forget the cache write — don't make the response wait on it
   if (fresh !== undefined && fresh !== null) {
     redis.set(key, JSON.stringify(fresh), "EX", ttlSeconds).catch(() => {});
+  }
+
+  return fresh;
+}
+
+// Same read/compute shape as `withCache`, but for analytics cache entries
+// specifically: the write goes through `setAnalyticsCache` instead of a
+// bare `redis.set`, so the key gets added to `cache:index:<scope>:<id>`
+// and `invalidateAnalyticsCache` can actually find it later. Any analytics
+// cache entry written via plain `withCache` is invisible to invalidation —
+// this is the only correct way to cache an analytics read.
+export async function withIndexedCache(scope, id, key, ttlSeconds = DEFAULT_TTL, fn) {
+  const cached = await redis.get(key);
+  if (cached) {
+    try {
+      return JSON.parse(cached);
+    } catch {
+      // corrupted cache entry — fall through to recompute
+    }
+  }
+
+  const fresh = await fn();
+
+  if (fresh !== undefined && fresh !== null) {
+    // Fire-and-forget, same as withCache — don't make the caller wait on
+    // the cache write (or the index write that rides along with it).
+    setAnalyticsCache(scope, id, key, JSON.stringify(fresh), ttlSeconds).catch(() => {});
   }
 
   return fresh;
