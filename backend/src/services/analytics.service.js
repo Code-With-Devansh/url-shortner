@@ -383,12 +383,13 @@ export const getOverallAnalyticsBreakdown = async (userId, range, by) => {
 export const getOverallAnalyticsLeaderboard = async (userId, range, limit = 10) => {
   const rangeKey = validateRange(range);
   const cappedLimit = Math.min(limit, 50);
+  const mongoLimit = cappedLimit+50;
   const since = sinceDate(rangeKey);
-  const key = analyticsCacheKey("user", userId, rangeKey, `leaderboard-base:${cappedLimit}`);
+  const key = analyticsCacheKey("user", userId, rangeKey, `leaderboard-base:${mongoLimit}`);
 
   const [mongoTop, liveTotals] = await Promise.all([
-    withCache(key, CACHE_TTL.historical, () => getTopUrlsForUser(userId, since, cappedLimit)),
-    getLiveLeaderboardTop(userId, cappedLimit), // uncached, always fresh
+    withCache(key, CACHE_TTL.historical, () => getTopUrlsForUser(userId, since, mongoLimit)),
+    getLiveLeaderboardTop(userId, mongoLimit), // uncached, always fresh
   ]);
 
   const byUrlId = new Map(

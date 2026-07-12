@@ -393,7 +393,7 @@ Set a new password using a valid password-reset token.
 
 Create a short URL. Works both **anonymously** and **authenticated** — behavior differs slightly:
 
-- **Anonymous:** generates a random 7-character ID. Custom slugs are not allowed.
+- **Anonymous:** generates a random ID. Custom slugs are not allowed.
 - **Authenticated:** generates a random ID, or uses a custom `slug` if provided. The URL is associated with the user's account (so it shows up in `GET /api/user/urls` and analytics).
 
 **Auth required:** No (optional — send `Authorization` header if logged in to associate the link with your account)
@@ -569,7 +569,6 @@ All routes below are prefixed with `/api/analytics` and require authentication. 
 }
 ```
 
-> **Caveat worth knowing as a consumer of this API:** `uniqueVisitors` in multi-day responses (`summary`, `timeseries` over more than one day) is a sum of each day's unique-visitor count, not a true unique count across the whole range — someone visiting on two different days within the range is counted twice. Treat it as an upper bound, not an exact dedup.
 
 **Errors:** `401 AUTH_UNAUTHENTICATED`, `404 URL_NOT_FOUND` (per-URL routes, if the URL doesn't exist or isn't yours), `400 ANALYTICS_INVALID_RANGE`, `400 ANALYTICS_INVALID_BREAKDOWN`, `429 RATE_LIMITED_API`
 
@@ -583,7 +582,7 @@ The actual short link redirect. This is what `https://pixel-mart.in/aB3xK9z` res
 
 **Auth required:** No
 
-**Behavior:** Serves an HTML interstitial page that redirects to the target URL client-side (rather than an HTTP 301/302) and records the click for analytics.
+**Behavior:** Serves an HTML interstitial page that redirects to the target URL client-side (rather than an HTTP 301/302).
 
 **Errors:** `404 URL_NOT_FOUND`, `400 URL_INVALID_TARGET` (target URL failed validation at redirect time), `429 RATE_LIMITED_REDIRECT` (token bucket: burst of 30, refilling at 5/sec, per IP)
 
@@ -597,6 +596,6 @@ Liveness/readiness check.
 
 **Auth required:** No
 
-**Success — `200`:** `{ "success": true, "inFlight": 1 }`
+**Success — `200`:** `{ "success": true }`
 
 **During graceful shutdown — `503`:** `{ "success": false, "status": "shutting_down" }`

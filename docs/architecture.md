@@ -2,7 +2,7 @@
 
 Snip is a URL shortener built around one constraint: the redirect path (`GET /:shortId`) is the highest-traffic, most latency-sensitive route in the system, and every other piece of the architecture exists either to keep that path fast or to process the side effects it generates without slowing it down.
 
-This doc covers the system end-to-end at a high level. For deep dives, see [`database.md`](./database.md), [`authentication.md`](./authentication.md), [`analytics.md`](./analytics.md), [`security.md`](./security.md), and [`deployment.md`](./deployment.md).
+This doc covers the system end-to-end at a high level. For deep dives, see [`database.md`](./DATABASE.md), [`authentication.md`](./AUTHENTICATION.md), [`analytics.md`](./ANALYTICS.md), [`security.md`](./SECURITY.md), and [`deployment.md`](./DEPLOYMENT.md).
 
 ## Goals that shaped the design
 
@@ -62,7 +62,7 @@ Two load-shedding layers run before any route handler:
 - **`tokenBucketLimiter`** on the redirect route specifically — a Lua-scripted token bucket per IP in Redis, sized to tolerate a single link going viral (bursty traffic from one popular link) without punishing it the way a fixed window would.
 - **`concurrencyLimiter`** globally — an in-process counter (deliberately *not* Redis-backed) that sheds load once too many requests are in flight on *this* replica. It protects this process's event loop and connection pools; since each replica gets its own ceiling, the limit scales naturally with however many replicas are running.
 
-See [`security.md`](./security.md) for the full rate-limiting matrix (login, register, shorten, refresh, email).
+See [`security.md`](./SECURITY.md) for the full rate-limiting matrix (login, register, shorten, refresh, email).
 
 ### Redirect hot path
 
@@ -82,18 +82,18 @@ Two queues, two dedicated worker processes — deliberately split so a slow emai
 
 | Queue | Worker | Concurrency | Job |
 |---|---|---|---|
-| `clicks` | `clickWorker.js` | 10 | Parse UA, geo, build a visitor hash, write aggregated counters into Redis (see [`analytics.md`](./analytics.md)) |
+| `clicks` | `clickWorker.js` | 10 | Parse UA, geo, build a visitor hash, write aggregated counters into Redis (see [`analytics.md`](./ANALYTICS.md)) |
 | `emails` | `emailWorker.js` | 5 (rate-limited to 10/sec) | Send verification / password-reset email via Resend |
 
 Both queues use BullMQ's `removeOnComplete`/`removeOnFail` policies to keep Redis from accumulating finished job data indefinitely. Workers run as separate processes/containers (`worker-click`, `worker-email` in `docker-compose.yml`), not inside the API process — so a worker crash or redeploy never takes the API down, and either side can be scaled independently.
 
 ### Analytics pipeline
 
-Clicks never write to MongoDB directly. They land in Redis (per-URL, per-day hash counters + a HyperLogLog for approximate unique visitors), and a cron job periodically flushes that buffer into a pre-aggregated `ClickBucket` collection in MongoDB. This trades a small amount of latency on *reading* analytics (today's numbers are blended live from Redis + historical buckets from Mongo) for removing a database write from every single click. Full details, including the known caveats around the unique-visitor figure, are in [`analytics.md`](./analytics.md).
+Clicks never write to MongoDB directly. They land in Redis (per-URL, per-minute hash counters + a HyperLogLog for approximate unique visitors), and a cron job periodically flushes that buffer into a pre-aggregated `ClickBucket` collection in MongoDB. This trades a small amount of latency on *reading* analytics (today's numbers are blended live from Redis + historical buckets from Mongo) for removing a database write from every single click. Full details are in [`analytics.md`](./ANALYTICS.md).
 
 ### Auth
 
-Dual-token JWT auth (short-lived access token, longer-lived refresh token in an `httpOnly` cookie) with multi-device support via a per-device `deviceId` cookie. Refresh tokens are cached in Redis as a fast-path lookup in front of MongoDB, with reuse detection that nukes every session for a user if a rotated-out token is ever presented again. Full flow, including the SSE-based "waiting for email verification" pattern, is in [`authentication.md`](./authentication.md).
+Dual-token JWT auth (short-lived access token, longer-lived refresh token in an `httpOnly` cookie) with multi-device support via a per-device `deviceId` cookie. Refresh tokens are cached in Redis as a fast-path lookup in front of MongoDB, with reuse detection that nukes every session for a user if a rotated-out token is ever presented again. Full flow, including the SSE-based "waiting for email verification" pattern, is in [`authentication.md`](./AUTHENTICATION.md).
 
 ### Caching layer
 
@@ -118,7 +118,7 @@ The email-verification flow holds open an SSE connection (`GET /api/auth/verify-
 - **MongoDB Atlas** — the source of truth for users, short URLs, refresh tokens, and aggregated click buckets.
 - **Redis Stack** — cache, queues (via BullMQ), rate limiting, bloom filter, and the click write-buffer described above.
 
-Schema details, indexes, and Redis key reference live in [`database.md`](./database.md).
+Schema details, indexes, and Redis key reference live in [`database.md`](./DATABASE.md).
 
 ### Deployment shape
 
@@ -126,7 +126,7 @@ Schema details, indexes, and Redis key reference live in [`database.md`](./datab
 - The cron container runs Alpine's built-in `crond`, scheduling the per-minute analytics flush (`analyticsWorker.js`, which also updates `ShortUrl.clicks` in the same transaction) and a 5-minute crash-recovery sweep (`analyticsRecoveryWorker.js`) as separate Node invocations rather than long-running processes.
 - The frontend is a separately deployed React/Vite app on Vercel, talking to the API cross-origin (hence `credentials: true` CORS and `sameSite: "none"` cookies in production).
 
-Full deployment topology, environment variables, and nginx config are in [`deployment.md`](./deployment.md).
+Full deployment topology, environment variables, and nginx config are in [`deployment.md`](./DEPLOYMENT.md).
 
 ## Request flow: creating a short URL
 
@@ -135,7 +135,7 @@ POST /api/create
   → attachUser            (optional: attaches req.user if a valid access token is present)
   → rate limiter          (tighter cap for anonymous, looser for authenticated)
   → validate full_url (and slug, if provided) with Zod
-  → generate id (nanoid, 7 chars) or use custom slug
+  → generate id or use custom slug
   → check slug uniqueness (authenticated custom slugs only)
   → save ShortUrl doc in MongoDB
   → cache the new URL                 (cache:url:<id>)
@@ -173,9 +173,9 @@ GET /:shortId
 
 ## Where to go next
 
-- New to the auth flow? Start with [`authentication.md`](./authentication.md).
-- Debugging analytics numbers? [`analytics.md`](./analytics.md) covers the Redis→Mongo pipeline and its known limitations.
-- Looking for a specific endpoint? [`api.md`](./api.md).
-- Setting up or modifying infrastructure? [`deployment.md`](./deployment.md).
-- Rate limits, CORS, CSRF posture, token handling? [`security.md`](./security.md).
-- Collections, indexes, Redis key reference? [`database.md`](./database.md).
+- New to the auth flow? Start with [`authentication.md`](./AUTHENTICATION.md).
+- Debugging analytics numbers? [`analytics.md`](./ANALYTICS.md) covers the Redis→Mongo pipeline and its known limitations.
+- Looking for a specific endpoint? [`api.md`](./API.md).
+- Setting up or modifying infrastructure? [`deployment.md`](./DEPLOYMENT.md).
+- Rate limits, CORS, CSRF posture, token handling? [`security.md`](./SECURITY.md).
+- Collections, indexes, Redis key reference? [`database.md`](./DATABASE.md).

@@ -1,4 +1,7 @@
 1. need to add quick logout. store logged out access tokens in redis.
+2. user has to refresh the page after logging out and login to another account else the information dont change
+3. see the last screenshot
+
 1. review the code by claude.   const url = await ShortUrlSchema.findById(urlId, "user").lean();
   const userId = url?.user ?? null; db call need to be caious
 4. logging out during email verification raises a bug.
