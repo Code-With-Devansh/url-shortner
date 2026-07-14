@@ -2,7 +2,7 @@
 
 A full-stack URL shortener, built as a backend-focused portfolio project. Snip isn't just "generate a short code and redirect" — it's an exercise in the operational concerns that come with running a public redirect service at scale: caching, rate limiting, background job queues, pre-aggregated analytics, and hardened auth, all backed by real production infrastructure.
 
-- **Backend**: `snp.2bd.net`
+- **Backend**: `pixel-mart.in`
 - **Frontend**: `snpi.vercel.app`
 
 ## Why This Project Exists

@@ -48,7 +48,5 @@
 
   document.getElementById('btn-go').addEventListener('click', doRedirect);
   document.getElementById('btn-cancel').addEventListener('click', cancelRedirect);
-
-  // recordClick();
   timer = setInterval(tick, 1000);
 }());
